@@ -12,3 +12,28 @@ create table if not exists evaluation_dimension (
     dimension_code varchar(64) not null unique,
     dimension_name varchar(64) not null
 );
+
+create table if not exists observation_task (
+    id bigint primary key auto_increment,
+    title varchar(128) not null,
+    leader_id bigint not null,
+    observer_id bigint not null,
+    teacher_name varchar(64) not null,
+    course_name varchar(128) not null,
+    lesson_time timestamp not null,
+    deadline timestamp not null,
+    status varchar(32) not null,
+    remark varchar(255),
+    created_at timestamp not null default current_timestamp
+);
+
+create table if not exists audit_log (
+    id bigint primary key auto_increment,
+    biz_type varchar(32) not null,
+    biz_id bigint not null,
+    operation_type varchar(32) not null,
+    operator_id bigint not null,
+    operator_name varchar(64) not null,
+    content varchar(255) not null,
+    created_at timestamp not null default current_timestamp
+);
