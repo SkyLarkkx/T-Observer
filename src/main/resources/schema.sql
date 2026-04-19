@@ -66,9 +66,9 @@ create table if not exists radar_report (
     period_type varchar(32) not null,
     period_value varchar(32) not null,
     sample_count int not null,
-    radar_json clob,
-    strength_summary clob not null,
-    weakness_summary clob not null,
+    radar_json text,
+    strength_summary text not null,
+    weakness_summary text not null,
     conclusion varchar(255) not null,
     generated_at timestamp not null default current_timestamp
 );
