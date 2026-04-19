@@ -41,6 +41,8 @@ class ObservationTaskControllerTest {
     void setUp() {
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
         leaderToken = tokenSessionService.create(new LoginUser(1L, "leader01", "Leader One", RoleCode.LEADER));
+        jdbcTemplate.update("delete from audit_log");
+        jdbcTemplate.update("delete from observation_task");
     }
 
     @Test

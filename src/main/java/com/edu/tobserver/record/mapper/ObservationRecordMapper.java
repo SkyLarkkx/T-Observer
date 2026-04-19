@@ -52,4 +52,22 @@ public interface ObservationRecordMapper {
               and observer_id = #{observerId}
             """)
     ObservationRecord findByTaskIdAndObserverId(@Param("taskId") Long taskId, @Param("observerId") Long observerId);
+
+    @Select("""
+            select
+                id,
+                task_id,
+                observer_id,
+                teacher_name,
+                strengths,
+                weaknesses,
+                suggestions,
+                status,
+                reject_reason,
+                submitted_at,
+                approved_at
+            from observation_record
+            where id = #{id}
+            """)
+    ObservationRecord findById(@Param("id") Long id);
 }
