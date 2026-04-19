@@ -8,6 +8,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 @Mapper
 public interface ObservationTaskMapper {
@@ -52,4 +53,29 @@ public interface ObservationTaskMapper {
     List<TaskListItemVo> findList(@Param("leaderId") Long leaderId,
                                   @Param("observerId") Long observerId,
                                   @Param("status") String status);
+
+    @Select("""
+            select
+                id,
+                title,
+                leader_id,
+                observer_id,
+                teacher_name,
+                course_name,
+                lesson_time,
+                deadline,
+                status,
+                remark,
+                created_at
+            from observation_task
+            where id = #{id}
+            """)
+    ObservationTask findById(@Param("id") Long id);
+
+    @Update("""
+            update observation_task
+            set status = #{status}
+            where id = #{id}
+            """)
+    int updateStatus(@Param("id") Long id, @Param("status") String status);
 }
