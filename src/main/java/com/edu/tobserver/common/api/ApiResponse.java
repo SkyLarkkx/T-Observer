@@ -1,6 +1,15 @@
 package com.edu.tobserver.common.api;
 
-public record ApiResponse<T>(int code, String message, T data) {
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+@Getter
+@AllArgsConstructor
+public class ApiResponse<T> {
+
+    private final int code;
+    private final String message;
+    private final T data;
 
     public static <T> ApiResponse<T> success(T data) {
         return new ApiResponse<>(200, "success", data);

@@ -31,10 +31,14 @@ Do not silently change architecture, stack, role model, API shape, or data contr
 ### Backend
 
 - Keep backend code in the root Spring Boot project under `src/main/java`.
+- Use Java 17 with Spring Boot 4.x conventions already present in `pom.xml`.
 - Use MyBatis for persistence.
+- Use Lombok where the project already relies on it for boilerplate reduction.
+- Do not introduce Java `record` types for backend DTO, VO, entity, or response objects unless the user explicitly asks for them.
 - Prefer lightweight interceptor-based auth for MVP instead of introducing full Spring Security unless the user requests it.
 - Use H2-backed integration tests for backend verification where the plan calls for them.
 - Keep shared enums, DTOs, VOs, and response wrappers aligned with the plan.
+- Keep backend code style aligned with the existing stack in `pom.xml`, including MySQL, H2, and the currently declared Redis support.
 
 ### Frontend
 
