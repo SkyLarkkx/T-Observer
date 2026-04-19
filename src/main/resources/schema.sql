@@ -37,3 +37,25 @@ create table if not exists audit_log (
     content varchar(255) not null,
     created_at timestamp not null default current_timestamp
 );
+
+create table if not exists observation_record (
+    id bigint primary key auto_increment,
+    task_id bigint not null,
+    observer_id bigint not null,
+    teacher_name varchar(64) not null,
+    strengths text not null,
+    weaknesses text not null,
+    suggestions text not null,
+    status varchar(32) not null,
+    reject_reason varchar(255),
+    submitted_at timestamp,
+    approved_at timestamp
+);
+
+create table if not exists observation_score (
+    id bigint primary key auto_increment,
+    record_id bigint not null,
+    dimension_code varchar(64) not null,
+    dimension_name varchar(64) not null,
+    score_value decimal(2,1) not null
+);
