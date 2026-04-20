@@ -47,6 +47,32 @@ Do not silently change architecture, stack, role model, API shape, or data contr
 - Follow the role-based page structure in the MVP plan.
 - Keep frontend DTO and VO types aligned with backend contracts.
 
+### Frontend Design Rules
+
+- Use `#409EFF` as the primary brand color.
+- Use light gray page backgrounds such as `#f5f7fa` for content areas.
+- Keep cards, buttons, inputs, dropdown panels, and similar components on an `8px` radius baseline unless a page-level container needs a slightly larger radius for visual balance.
+- Prefer the system default sans-serif font stack.
+- Keep visible type hierarchy clear:
+  - Titles should stay around `18px`.
+  - Body text should stay around `14px`.
+- Add enough padding and margin to avoid crowded layouts.
+- Follow Element Plus visual language for structure and interaction, but soften heavy default borders where appropriate.
+- Prefer spacing, background contrast, and shadow over thick border boxes.
+- Keep the visual tone light, airy, and blue-led. Avoid drifting into a dark dashboard style unless the user explicitly asks for it.
+- For login pages:
+  - Center the login card vertically.
+  - Use a light blue gradient or subtle geometric background treatment.
+  - Prefer glassmorphism or soft shadow surfaces over heavy bordered cards.
+  - Make focus states clear and brand-colored.
+  - Give the primary action button subtle hover and press feedback.
+- For main application shells:
+  - Prefer a sidebar layout with responsive collapse or drawer behavior.
+  - Use a top header with breadcrumbs and a user menu.
+  - Keep white content cards on top of a light gray content background.
+- Preserve responsive behavior across desktop, tablet, and mobile.
+- When extending existing frontend work, reuse the shared visual tokens already introduced in `t-observer-web/src/styles/ui-theme.css` unless the user asks to replace them.
+
 ### Cross-Cutting Contracts
 
 Unless the user explicitly changes them, preserve these codes:
