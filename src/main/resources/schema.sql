@@ -59,3 +59,16 @@ create table if not exists observation_score (
     dimension_name varchar(64) not null,
     score_value decimal(2,1) not null
 );
+
+create table if not exists radar_report (
+    id bigint primary key auto_increment,
+    teacher_name varchar(64) not null,
+    period_type varchar(32) not null,
+    period_value varchar(32) not null,
+    sample_count int not null,
+    radar_json text,
+    strength_summary text not null,
+    weakness_summary text not null,
+    conclusion varchar(255) not null,
+    generated_at timestamp not null default current_timestamp
+);
