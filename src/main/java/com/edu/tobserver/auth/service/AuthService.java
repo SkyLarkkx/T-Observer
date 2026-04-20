@@ -7,7 +7,9 @@ import com.edu.tobserver.auth.vo.CurrentUserVo;
 import com.edu.tobserver.auth.vo.LoginResponse;
 import com.edu.tobserver.common.context.LoginUser;
 import com.edu.tobserver.common.context.LoginUserContext;
+import com.edu.tobserver.common.enums.RoleCode;
 import com.edu.tobserver.common.exception.BusinessException;
+import java.util.List;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -50,5 +52,21 @@ public class AuthService {
                 .realName(loginUser.getRealName())
                 .roleCode(loginUser.getRoleCode())
                 .build();
+    }
+
+    public List<CurrentUserVo> listMembers(String keyword) {
+        LoginUser loginUser = LoginUserContext.getRequired();
+        if (loginUser.getRoleCode() != RoleCode.LEADER && loginUser.getRoleCode() != RoleCode.ADMIN) {
+            throw new BusinessException(403, "只有组长或管理员可以查看成员列表");
+        }
+
+        return userMapper.findActiveMembers(keyword == null ? null : keyword.trim()).stream()
+                .map(user -> CurrentUserVo.builder()
+                        .userId(user.getId())
+                        .username(user.getUsername())
+                        .realName(user.getRealName())
+                        .roleCode(user.getRoleCode())
+                        .build())
+                .toList();
     }
 }

@@ -64,4 +64,22 @@ describe('app router auth guard', () => {
     expect(store.token).toBe('')
     expect(store.isValidated).toBe(false)
   })
+
+  it('routes /tasks to the member task page after restoring a member session', async () => {
+    window.localStorage.setItem('t-observer-token', 'member-token')
+    setActivePinia(createPinia())
+    const router = createAppRouter(createMemoryHistory())
+
+    vi.mocked(fetchCurrentUser).mockResolvedValue({
+      userId: 2,
+      username: 'member01',
+      realName: '李老师',
+      roleCode: 'MEMBER',
+    })
+
+    await router.push('/tasks')
+    await router.isReady()
+
+    expect(router.currentRoute.value.fullPath).toBe('/member/tasks')
+  })
 })

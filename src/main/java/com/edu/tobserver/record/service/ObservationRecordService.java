@@ -95,6 +95,23 @@ public class ObservationRecordService {
         return toVo(savedRecord);
     }
 
+    public ObservationRecordVo findCurrentByTaskId(Long taskId) {
+        LoginUser loginUser = requireMember();
+        ObservationTask observationTask = observationTaskMapper.findById(taskId);
+        if (observationTask == null) {
+            throw new BusinessException(404, "\u542c\u8bfe\u4efb\u52a1\u4e0d\u5b58\u5728");
+        }
+        if (!loginUser.getUserId().equals(observationTask.getObserverId())) {
+            throw new BusinessException(403, "\u4f60\u65e0\u6743\u67e5\u770b\u8be5\u4efb\u52a1\u7684\u542c\u8bfe\u8bb0\u5f55");
+        }
+
+        ObservationRecord observationRecord = observationRecordMapper.findByTaskIdAndObserverId(taskId, loginUser.getUserId());
+        if (observationRecord == null) {
+            return null;
+        }
+        return toVo(observationRecord);
+    }
+
     private LoginUser requireMember() {
         LoginUser loginUser = LoginUserContext.getRequired();
         if (loginUser.getRoleCode() != RoleCode.MEMBER) {

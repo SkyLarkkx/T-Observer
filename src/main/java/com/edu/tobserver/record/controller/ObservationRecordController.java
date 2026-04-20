@@ -6,6 +6,8 @@ import com.edu.tobserver.record.dto.RecordSubmitRequest;
 import com.edu.tobserver.record.service.ObservationRecordService;
 import com.edu.tobserver.record.vo.ObservationRecordVo;
 import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,5 +31,10 @@ public class ObservationRecordController {
     @PostMapping("/submit")
     public ApiResponse<ObservationRecordVo> submit(@Valid @RequestBody RecordSubmitRequest request) {
         return ApiResponse.success(observationRecordService.submit(request));
+    }
+
+    @GetMapping("/task/{taskId}")
+    public ApiResponse<ObservationRecordVo> currentByTask(@PathVariable Long taskId) {
+        return ApiResponse.success(observationRecordService.findCurrentByTaskId(taskId));
     }
 }

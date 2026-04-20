@@ -19,6 +19,8 @@ export type CurrentUserResponse = {
   roleCode: RoleCode
 }
 
+export type MemberOption = CurrentUserResponse
+
 export type ApiEnvelope<T> = {
   code: number
   message: string

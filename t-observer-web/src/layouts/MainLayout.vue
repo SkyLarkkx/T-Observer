@@ -1,9 +1,15 @@
 <script setup lang="ts">
 import { ArrowDown, Expand, Fold } from '@element-plus/icons-vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import { RouterView, useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 
 import { useAuthStore } from '@/stores/auth'
+
+type BreadcrumbItem = {
+  label: string
+  to?: RouteLocationRaw
+  testId?: string
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -15,23 +21,59 @@ const mobileDrawerOpen = ref(false)
 const desktopSidebarId = 'app-sidebar-panel-desktop'
 const mobileSidebarId = 'app-sidebar-panel-mobile'
 
-const navItems = [
+const taskRouteTarget = computed<RouteLocationRaw>(() => {
+  if (authStore.roleCode === 'LEADER') {
+    return { name: 'leader-task-manage' }
+  }
+
+  if (authStore.roleCode === 'MEMBER') {
+    return { name: 'member-task-list' }
+  }
+
+  return { name: 'dashboard-tasks' }
+})
+
+const navItems = computed(() => [
   {
-    name: 'dashboard-overview',
+    names: ['dashboard-overview'],
     label: '概览',
-    to: { name: 'dashboard-overview' },
+    to: { name: 'dashboard-overview' as const },
   },
   {
-    name: 'dashboard-tasks',
+    names: ['dashboard-tasks', 'member-task-list', 'member-record-form', 'leader-task-manage'],
     label: '任务',
-    to: { name: 'dashboard-tasks' },
+    to: taskRouteTarget.value,
   },
-  {
-    name: 'dashboard-records',
-    label: '记录',
-    to: { name: 'dashboard-records' },
-  },
-] as const
+])
+
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
+  switch (route.name) {
+    case 'member-record-form':
+      return [
+        {
+          label: '任务',
+          to: { name: 'member-task-list' },
+          testId: 'breadcrumb-link-member-task-list',
+        },
+        { label: '记录填写' },
+      ]
+    case 'member-task-list':
+    case 'leader-task-manage':
+    case 'dashboard-tasks':
+      return [{ label: '任务' }]
+    case 'dashboard-overview':
+    default:
+      return [{ label: '概览' }]
+  }
+})
+
+const previousBreadcrumb = computed(() => {
+  if (breadcrumbItems.value.length < 2) {
+    return null
+  }
+
+  return breadcrumbItems.value[breadcrumbItems.value.length - 2] ?? null
+})
 
 const updateViewport = () => {
   isMobile.value = window.innerWidth < 992
@@ -50,13 +92,12 @@ onBeforeUnmount(() => {
 })
 
 const sidebarCollapsed = computed(() => (!isMobile.value ? desktopCollapsed.value : false))
-const sidebarExpanded = computed(() => (isMobile.value ? mobileDrawerOpen.value : !desktopCollapsed.value))
+const sidebarExpanded = computed(() =>
+  isMobile.value ? mobileDrawerOpen.value : !desktopCollapsed.value,
+)
 const sidebarControlsId = computed(() => (isMobile.value ? mobileSidebarId : desktopSidebarId))
 const sidebarWidth = computed(() => (sidebarCollapsed.value ? '88px' : '244px'))
 const currentRouteName = computed(() => String(route.name ?? ''))
-const activeNavItem = computed(
-  () => navItems.find((item) => item.name === currentRouteName.value) ?? navItems[0],
-)
 
 function toggleSidebar() {
   if (isMobile.value) {
@@ -73,8 +114,34 @@ function handleNavClick() {
   }
 }
 
-function isNavActive(name: string) {
-  return currentRouteName.value === name
+function isNavActive(names: string[]) {
+  return names.includes(currentRouteName.value)
+}
+
+async function navigateByBreadcrumb(target?: RouteLocationRaw) {
+  if (!target) {
+    return
+  }
+
+  await router.push(target)
+}
+
+async function navigateByNav(target?: RouteLocationRaw) {
+  if (!target) {
+    return
+  }
+
+  await router.push(target)
+  handleNavClick()
+}
+
+async function goBackByBreadcrumb() {
+  if (previousBreadcrumb.value?.to) {
+    await navigateByBreadcrumb(previousBreadcrumb.value.to)
+    return
+  }
+
+  await router.back()
 }
 
 async function handleLogout() {
@@ -103,16 +170,16 @@ async function handleLogout() {
         </div>
 
         <nav class="sidebar__nav" aria-label="Primary">
-          <RouterLink
+          <button
             v-for="item in navItems"
-            :key="item.name"
-            :to="item.to"
-            :class="['sidebar__nav-item', { 'sidebar__nav-item--active': isNavActive(item.name) }]"
-            :aria-current="isNavActive(item.name) ? 'page' : undefined"
-            @click="handleNavClick"
+            :key="item.label"
+            type="button"
+            :class="['sidebar__nav-item', { 'sidebar__nav-item--active': isNavActive(item.names) }]"
+            :aria-current="isNavActive(item.names) ? 'page' : undefined"
+            @click="navigateByNav(item.to)"
           >
             {{ item.label }}
-          </RouterLink>
+          </button>
         </nav>
       </aside>
     </el-drawer>
@@ -135,15 +202,16 @@ async function handleLogout() {
       </div>
 
       <nav class="sidebar__nav" aria-label="Primary">
-        <RouterLink
+        <button
           v-for="item in navItems"
-          :key="item.name"
-          :to="item.to"
-          :class="['sidebar__nav-item', { 'sidebar__nav-item--active': isNavActive(item.name) }]"
-          :aria-current="isNavActive(item.name) ? 'page' : undefined"
+          :key="item.label"
+          type="button"
+          :class="['sidebar__nav-item', { 'sidebar__nav-item--active': isNavActive(item.names) }]"
+          :aria-current="isNavActive(item.names) ? 'page' : undefined"
+          @click="navigateByNav(item.to)"
         >
           {{ item.label }}
-        </RouterLink>
+        </button>
       </nav>
     </el-aside>
 
@@ -163,10 +231,37 @@ async function handleLogout() {
             </el-icon>
           </el-button>
 
-          <el-breadcrumb separator="/">
-            <el-breadcrumb-item data-testid="app-breadcrumbs">工作台</el-breadcrumb-item>
-            <el-breadcrumb-item>{{ activeNavItem.label }}</el-breadcrumb-item>
-          </el-breadcrumb>
+          <div class="main-layout__breadcrumbs">
+            <el-button
+              v-if="previousBreadcrumb"
+              text
+              circle
+              data-testid="breadcrumb-back"
+              aria-label="返回上一级"
+              @click="goBackByBreadcrumb"
+            >
+              ←
+            </el-button>
+
+            <el-breadcrumb separator="/">
+              <el-breadcrumb-item data-testid="app-breadcrumbs">工作台</el-breadcrumb-item>
+              <el-breadcrumb-item
+                v-for="item in breadcrumbItems"
+                :key="item.label"
+              >
+                <button
+                  v-if="item.to"
+                  type="button"
+                  class="breadcrumb-link"
+                  :data-testid="item.testId"
+                  @click="navigateByBreadcrumb(item.to)"
+                >
+                  {{ item.label }}
+                </button>
+                <span v-else>{{ item.label }}</span>
+              </el-breadcrumb-item>
+            </el-breadcrumb>
+          </div>
         </div>
 
         <el-dropdown trigger="click">
@@ -315,6 +410,22 @@ async function handleLogout() {
 
 .main-layout__toggle {
   color: #334155;
+}
+
+.main-layout__breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.breadcrumb-link {
+  border: none;
+  padding: 0;
+  background: transparent;
+  color: var(--ui-color-primary);
+  cursor: pointer;
+  font: inherit;
 }
 
 .user-trigger {

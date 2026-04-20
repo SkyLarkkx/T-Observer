@@ -3,6 +3,7 @@ import type {
   CurrentUserResponse,
   LoginRequest,
   LoginResponse,
+  MemberOption,
 } from '@/types/auth'
 
 import { http } from './http'
@@ -14,5 +15,12 @@ export async function login(payload: LoginRequest) {
 
 export async function fetchCurrentUser() {
   const response = await http.get<ApiEnvelope<CurrentUserResponse>>('/auth/me')
+  return response.data.data
+}
+
+export async function fetchMembers(keyword?: string) {
+  const response = await http.get<ApiEnvelope<MemberOption[]>>('/auth/members', {
+    params: keyword ? { keyword } : undefined,
+  })
   return response.data.data
 }
