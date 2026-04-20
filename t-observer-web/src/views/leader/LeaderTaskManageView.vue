@@ -3,8 +3,10 @@ import type { AxiosError } from 'axios'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 
+import { fetchMembers } from '@/api/auth'
 import { createTask, fetchTasks } from '@/api/tasks'
 import StatusTag from '@/components/common/StatusTag.vue'
+import type { MemberOption } from '@/types/auth'
 import {
   TASK_STATUS_FILTERS,
   type TaskCreatePayload,
@@ -15,8 +17,10 @@ import {
 const loading = ref(false)
 const drawerOpen = ref(false)
 const creating = ref(false)
+const membersLoading = ref(false)
 const errorMessage = ref('')
 const tasks = ref<TaskListItem[]>([])
+const memberOptions = ref<MemberOption[]>([])
 const activeFilter = ref<TaskStatus | 'ALL'>('ALL')
 const isMobile = ref(false)
 const formRef = ref<FormInstance>()
@@ -57,19 +61,32 @@ async function loadTasks() {
   }
 }
 
+async function loadMembers(keyword = '') {
+  membersLoading.value = true
+
+  try {
+    memberOptions.value = await fetchMembers(keyword.trim() || undefined)
+  } catch (error) {
+    ElMessage.error(getAxiosMessage(error, '成员列表加载失败，请稍后重试'))
+    memberOptions.value = []
+  } finally {
+    membersLoading.value = false
+  }
+}
+
 const rules: FormRules<TaskCreatePayload> = {
   title: [{ required: true, message: '请输入任务标题', trigger: 'blur' }],
   observerId: [
-    { required: true, message: '请输入听课成员 ID', trigger: 'blur' },
+    { required: true, message: '请选择听课成员', trigger: 'change' },
     {
       validator: (_, value, callback) => {
         if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) {
-          callback(new Error('成员 ID 必须为正整数'))
+          callback(new Error('请选择有效的听课成员'))
           return
         }
         callback()
       },
-      trigger: 'blur',
+      trigger: 'change',
     },
   ],
   teacherName: [{ required: true, message: '请输入授课教师', trigger: 'blur' }],
@@ -151,10 +168,19 @@ async function handleCreateTask() {
   }
 }
 
+function formatMemberLabel(member: MemberOption) {
+  return `${member.realName}（${member.username}）`
+}
+
+async function handleMemberSearch(keyword: string) {
+  await loadMembers(keyword)
+}
+
 onMounted(() => {
   updateViewport()
   window.addEventListener('resize', updateViewport)
   void loadTasks()
+  void loadMembers()
 })
 
 onBeforeUnmount(() => {
@@ -244,6 +270,7 @@ onBeforeUnmount(() => {
       title="新建听课任务"
       size="420px"
       destroy-on-close
+      @opened="loadMembers()"
       @closed="formRef?.resetFields()"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
@@ -251,8 +278,25 @@ onBeforeUnmount(() => {
           <el-input v-model="form.title" placeholder="例如：高一数学听课" />
         </el-form-item>
 
-        <el-form-item label="听课成员 ID" prop="observerId">
-          <el-input-number v-model="form.observerId" :min="1" :step="1" style="width: 100%" />
+        <el-form-item label="听课成员" prop="observerId">
+          <el-select
+            v-model="form.observerId"
+            filterable
+            remote
+            reserve-keyword
+            clearable
+            placeholder="请选择或搜索听课成员"
+            :remote-method="handleMemberSearch"
+            :loading="membersLoading"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="member in memberOptions"
+              :key="member.userId"
+              :label="formatMemberLabel(member)"
+              :value="member.userId"
+            />
+          </el-select>
         </el-form-item>
 
         <el-form-item label="授课教师" prop="teacherName">

@@ -5,6 +5,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.edu.tobserver.auth.service.TokenSessionService;
+import com.edu.tobserver.common.context.LoginUser;
+import com.edu.tobserver.common.enums.RoleCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,11 +25,16 @@ class AuthControllerTest {
     @Autowired
     private WebApplicationContext webApplicationContext;
 
+    @Autowired
+    private TokenSessionService tokenSessionService;
+
     private MockMvc mockMvc;
+    private String leaderToken;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+        leaderToken = tokenSessionService.create(new LoginUser(1L, "leader01", "Leader One", RoleCode.LEADER));
     }
 
     @Test
@@ -46,5 +54,14 @@ class AuthControllerTest {
         mockMvc.perform(get("/api/auth/me"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("未登录或登录已过期"));
+    }
+
+    @Test
+    void shouldListActiveMembersForTaskAssignment() throws Exception {
+        mockMvc.perform(get("/api/auth/members")
+                        .header("X-Auth-Token", leaderToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].realName").isNotEmpty())
+                .andExpect(jsonPath("$.data[0].roleCode").value("MEMBER"));
     }
 }

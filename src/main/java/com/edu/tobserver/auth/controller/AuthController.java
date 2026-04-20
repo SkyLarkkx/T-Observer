@@ -6,10 +6,12 @@ import com.edu.tobserver.auth.vo.CurrentUserVo;
 import com.edu.tobserver.auth.vo.LoginResponse;
 import com.edu.tobserver.common.api.ApiResponse;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -30,5 +32,10 @@ public class AuthController {
     @GetMapping("/me")
     public ApiResponse<CurrentUserVo> currentUser() {
         return ApiResponse.success(authService.currentUser());
+    }
+
+    @GetMapping("/members")
+    public ApiResponse<List<CurrentUserVo>> listMembers(@RequestParam(required = false) String keyword) {
+        return ApiResponse.success(authService.listMembers(keyword));
     }
 }

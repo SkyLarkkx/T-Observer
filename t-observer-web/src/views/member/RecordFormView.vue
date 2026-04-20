@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { AxiosError } from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { saveRecordDraft, submitRecord } from '@/api/records'
+import { fetchRecordByTask, saveRecordDraft, submitRecord } from '@/api/records'
 import StatusTag from '@/components/common/StatusTag.vue'
 import DimensionScorePanel from '@/components/record/DimensionScorePanel.vue'
 import {
@@ -34,6 +34,7 @@ const scores = ref<ScoreItem[]>(createEmptyScores())
 const strengths = ref('')
 const weaknesses = ref('')
 const suggestions = ref('')
+const loadingRecord = ref(false)
 const isSavingDraft = ref(false)
 const isSubmitting = ref(false)
 const currentTaskStatus = ref<TaskStatus | null>(null)
@@ -63,6 +64,7 @@ function resolveStatus(value: unknown): TaskStatus | null {
   if (value === 'PENDING' || value === 'IN_PROGRESS' || value === 'COMPLETED') {
     return value
   }
+
   return null
 }
 
@@ -84,11 +86,8 @@ const taskContext = computed<TaskContext | null>(() => {
     !deadline ||
     !status
   ) {
-    currentTaskStatus.value = null
     return null
   }
-
-  currentTaskStatus.value = currentTaskStatus.value ?? status
 
   return {
     id: taskId,
@@ -102,7 +101,8 @@ const taskContext = computed<TaskContext | null>(() => {
   }
 })
 
-const readOnly = computed(() => currentTaskStatus.value === 'COMPLETED')
+const displayStatus = computed<TaskStatus>(() => currentTaskStatus.value ?? taskContext.value?.status ?? 'PENDING')
+const readOnly = computed(() => displayStatus.value === 'COMPLETED')
 
 function buildPayload(): RecordDraftPayload | null {
   if (!taskContext.value) {
@@ -121,9 +121,16 @@ function buildPayload(): RecordDraftPayload | null {
 
 function fillFromRecord(record: ObservationRecord) {
   scores.value = normalizeScores(record.scores)
-  strengths.value = record.strengths
-  weaknesses.value = record.weaknesses
-  suggestions.value = record.suggestions
+  strengths.value = record.strengths ?? ''
+  weaknesses.value = record.weaknesses ?? ''
+  suggestions.value = record.suggestions ?? ''
+
+  if (record.status === 'DRAFT' || record.status === 'RETURNED') {
+    currentTaskStatus.value = 'IN_PROGRESS'
+    return
+  }
+
+  currentTaskStatus.value = 'COMPLETED'
 }
 
 function validateSubmitPayload(payload: RecordDraftPayload) {
@@ -152,6 +159,25 @@ function validateSubmitPayload(payload: RecordDraftPayload) {
   return true
 }
 
+async function loadExistingRecord() {
+  if (!taskContext.value) {
+    return
+  }
+
+  loadingRecord.value = true
+
+  try {
+    const record = await fetchRecordByTask(taskContext.value.id)
+    if (record) {
+      fillFromRecord(record)
+    }
+  } catch (error) {
+    ElMessage.error(getAxiosMessage(error, '记录加载失败，请稍后重试'))
+  } finally {
+    loadingRecord.value = false
+  }
+}
+
 async function handleSaveDraft() {
   const payload = buildPayload()
   if (!payload || readOnly.value) {
@@ -163,8 +189,8 @@ async function handleSaveDraft() {
   try {
     const record = await saveRecordDraft(payload)
     fillFromRecord(record)
-    currentTaskStatus.value = 'IN_PROGRESS'
     ElMessage.success('草稿已保存')
+    await router.push('/tasks')
   } catch (error) {
     ElMessage.error(getAxiosMessage(error, '草稿保存失败，请稍后重试'))
   } finally {
@@ -191,8 +217,8 @@ async function handleSubmit() {
   isSubmitting.value = true
 
   try {
-    await submitRecord(payload)
-    currentTaskStatus.value = 'COMPLETED'
+    const record = await submitRecord(payload)
+    fillFromRecord(record)
     ElMessage.success('记录已提交')
     await router.push('/tasks')
   } catch (error) {
@@ -205,6 +231,14 @@ async function handleSubmit() {
 async function goBack() {
   await router.push('/tasks')
 }
+
+onMounted(() => {
+  if (taskContext.value) {
+    currentTaskStatus.value = taskContext.value.status
+  }
+
+  void loadExistingRecord()
+})
 </script>
 
 <template>
@@ -215,7 +249,7 @@ async function goBack() {
         <h1>听课记录填写</h1>
         <p>请围绕任务摘要完成五维评分与文本分析，支持先保存草稿再正式提交。</p>
       </div>
-      <StatusTag :status="currentTaskStatus || taskContext.status" />
+      <StatusTag :status="displayStatus" />
     </header>
 
     <el-alert
@@ -226,96 +260,106 @@ async function goBack() {
       show-icon
     />
 
-    <section class="record-form-page__task-card">
-      <div>
-        <p class="record-form-page__eyebrow">任务摘要</p>
-        <h2>{{ taskContext.title }}</h2>
-      </div>
+    <el-skeleton v-if="loadingRecord" animated>
+      <template #template>
+        <el-skeleton-item variant="p" style="width: 50%" />
+        <el-skeleton-item variant="text" style="margin-top: 12px; width: 100%" />
+        <el-skeleton-item variant="text" style="width: 80%" />
+      </template>
+    </el-skeleton>
 
-      <dl class="record-form-page__task-grid">
+    <template v-else>
+      <section class="record-form-page__task-card">
         <div>
-          <dt>授课教师</dt>
-          <dd>{{ taskContext.teacherName }}</dd>
+          <p class="record-form-page__eyebrow">任务摘要</p>
+          <h2>{{ taskContext.title }}</h2>
         </div>
-        <div>
-          <dt>课程名称</dt>
-          <dd>{{ taskContext.courseName }}</dd>
+
+        <dl class="record-form-page__task-grid">
+          <div>
+            <dt>授课教师</dt>
+            <dd>{{ taskContext.teacherName }}</dd>
+          </div>
+          <div>
+            <dt>课程名称</dt>
+            <dd>{{ taskContext.courseName }}</dd>
+          </div>
+          <div>
+            <dt>听课时间</dt>
+            <dd>{{ formatDateTime(taskContext.lessonTime) }}</dd>
+          </div>
+          <div>
+            <dt>截止时间</dt>
+            <dd>{{ formatDateTime(taskContext.deadline) }}</dd>
+          </div>
+        </dl>
+
+        <p v-if="taskContext.remark" class="record-form-page__remark">{{ taskContext.remark }}</p>
+      </section>
+
+      <DimensionScorePanel v-model="scores" :disabled="readOnly" />
+
+      <section class="record-form-page__text-grid">
+        <article class="record-form-page__text-card">
+          <header>
+            <h3>优点分析</h3>
+            <span>聚焦课堂亮点、节奏和互动设计。</span>
+          </header>
+          <el-input
+            v-model="strengths"
+            type="textarea"
+            :rows="5"
+            :disabled="readOnly"
+            placeholder="请填写本次听课中观察到的主要亮点。"
+          />
+        </article>
+
+        <article class="record-form-page__text-card">
+          <header>
+            <h3>待改进项</h3>
+            <span>可从提问深度、课堂组织或内容呈现切入。</span>
+          </header>
+          <el-input
+            v-model="weaknesses"
+            type="textarea"
+            :rows="5"
+            :disabled="readOnly"
+            placeholder="请填写需要继续改进的课堂环节。"
+          />
+        </article>
+
+        <article class="record-form-page__text-card">
+          <header>
+            <h3>改进建议</h3>
+            <span>建议尽量具体，便于后续跟进执行。</span>
+          </header>
+          <el-input
+            v-model="suggestions"
+            type="textarea"
+            :rows="5"
+            :disabled="readOnly"
+            placeholder="请填写下一步改进建议。"
+          />
+        </article>
+      </section>
+
+      <footer class="record-form-page__footer">
+        <p>草稿允许不完整保存，正式提交前需要补齐全部文本与评分。</p>
+        <div class="record-form-page__actions">
+          <el-button :disabled="readOnly" :loading="isSavingDraft" @click="handleSaveDraft">
+            保存草稿
+          </el-button>
+          <el-button
+            type="primary"
+            :disabled="readOnly"
+            :loading="isSubmitting"
+            @click="handleSubmit"
+          >
+            提交记录
+          </el-button>
         </div>
-        <div>
-          <dt>听课时间</dt>
-          <dd>{{ formatDateTime(taskContext.lessonTime) }}</dd>
-        </div>
-        <div>
-          <dt>截止时间</dt>
-          <dd>{{ formatDateTime(taskContext.deadline) }}</dd>
-        </div>
-      </dl>
-
-      <p v-if="taskContext.remark" class="record-form-page__remark">{{ taskContext.remark }}</p>
-    </section>
-
-    <DimensionScorePanel v-model="scores" :disabled="readOnly" />
-
-    <section class="record-form-page__text-grid">
-      <article class="record-form-page__text-card">
-        <header>
-          <h3>优点分析</h3>
-          <span>聚焦课堂亮点、节奏和互动设计。</span>
-        </header>
-        <el-input
-          v-model="strengths"
-          type="textarea"
-          :rows="5"
-          :disabled="readOnly"
-          placeholder="请填写本次听课中观察到的主要亮点。"
-        />
-      </article>
-
-      <article class="record-form-page__text-card">
-        <header>
-          <h3>待改进项</h3>
-          <span>可从提问深度、课堂组织或内容呈现切入。</span>
-        </header>
-        <el-input
-          v-model="weaknesses"
-          type="textarea"
-          :rows="5"
-          :disabled="readOnly"
-          placeholder="请填写需要继续改进的课堂环节。"
-        />
-      </article>
-
-      <article class="record-form-page__text-card">
-        <header>
-          <h3>改进建议</h3>
-          <span>建议尽量具体，便于后续跟进执行。</span>
-        </header>
-        <el-input
-          v-model="suggestions"
-          type="textarea"
-          :rows="5"
-          :disabled="readOnly"
-          placeholder="请填写下一步改进建议。"
-        />
-      </article>
-    </section>
-
-    <footer class="record-form-page__footer">
-      <p>草稿允许不完整保存，正式提交前需要补齐全部文本与评分。</p>
-      <div class="record-form-page__actions">
-        <el-button :disabled="readOnly" :loading="isSavingDraft" @click="handleSaveDraft">
-          保存草稿
-        </el-button>
-        <el-button
-          type="primary"
-          :disabled="readOnly"
-          :loading="isSubmitting"
-          @click="handleSubmit"
-        >
-          提交记录
-        </el-button>
-      </div>
-    </footer>
+      </footer>
+    </template>
   </section>
 
   <el-result

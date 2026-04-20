@@ -2,6 +2,7 @@ import ElementPlus from 'element-plus'
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { fetchMembers } from '@/api/auth'
 import { fetchTasks } from '@/api/tasks'
 
 import LeaderTaskManageView from './LeaderTaskManageView.vue'
@@ -10,6 +11,14 @@ vi.mock('@/api/tasks', () => ({
   fetchTasks: vi.fn(),
   createTask: vi.fn(),
 }))
+
+vi.mock('@/api/auth', async () => {
+  const actual = await vi.importActual<typeof import('@/api/auth')>('@/api/auth')
+  return {
+    ...actual,
+    fetchMembers: vi.fn(),
+  }
+})
 
 describe('LeaderTaskManageView', () => {
   afterEach(() => {
@@ -50,6 +59,14 @@ describe('LeaderTaskManageView', () => {
 
   it('shows the empty state when the leader has no tasks yet', async () => {
     vi.mocked(fetchTasks).mockResolvedValue([])
+    vi.mocked(fetchMembers).mockResolvedValue([
+      {
+        userId: 2,
+        username: 'member01',
+        realName: '李老师',
+        roleCode: 'MEMBER',
+      },
+    ])
 
     const wrapper = mount(LeaderTaskManageView, {
       global: {
@@ -64,5 +81,32 @@ describe('LeaderTaskManageView', () => {
     await vi.waitFor(() => {
       expect(wrapper.text()).toContain('可以先创建一条听课任务')
     })
+  })
+
+  it('loads member options and uses member name selection instead of raw id input', async () => {
+    vi.mocked(fetchTasks).mockResolvedValue([])
+    vi.mocked(fetchMembers).mockResolvedValue([
+      {
+        userId: 2,
+        username: 'member01',
+        realName: '李老师',
+        roleCode: 'MEMBER',
+      },
+    ])
+
+    const wrapper = mount(LeaderTaskManageView, {
+      global: {
+        plugins: [ElementPlus],
+      },
+    })
+
+    await vi.waitFor(() => {
+      expect(fetchMembers).toHaveBeenCalled()
+    })
+
+    await wrapper.findAll('button').find((button) => button.text().includes('新建任务'))?.trigger('click')
+
+    expect(wrapper.text()).toContain('听课成员')
+    expect(wrapper.text()).not.toContain('听课成员 ID')
   })
 })

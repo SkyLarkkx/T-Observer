@@ -1,13 +1,14 @@
 package com.edu.tobserver.record;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.edu.tobserver.auth.service.TokenSessionService;
 import com.edu.tobserver.common.context.LoginUser;
 import com.edu.tobserver.common.enums.RoleCode;
-import com.edu.tobserver.auth.service.TokenSessionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -79,7 +80,7 @@ class ObservationRecordControllerTest {
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("\u63d0\u4ea4\u65f6\u5fc5\u987b\u586b\u5199 5 \u4e2a\u7ef4\u5ea6\u8bc4\u5206"));
+                .andExpect(jsonPath("$.message").value("提交时必须填写 5 个维度评分"));
     }
 
     @Test
@@ -140,5 +141,32 @@ class ObservationRecordControllerTest {
         assertThat(recordCount).isEqualTo(1);
         assertThat(scoreCount).isEqualTo(5);
         assertThat(taskStatus).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    void shouldReturnExistingRecordByTaskId() throws Exception {
+        mockMvc.perform(post("/api/records/save-draft")
+                        .header("X-Auth-Token", memberToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "taskId":1,
+                                  "teacherName":"Teacher Zhao",
+                                  "strengths":"Classroom rhythm is good",
+                                  "weaknesses":"Board writing can be clearer",
+                                  "suggestions":"Add more in-class follow-up questions",
+                                  "scores":[
+                                    {"dimensionCode":"TEACHING_DESIGN","scoreValue":4.5}
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/records/task/1")
+                        .header("X-Auth-Token", memberToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.taskId").value(1))
+                .andExpect(jsonPath("$.data.status").value("DRAFT"))
+                .andExpect(jsonPath("$.data.strengths").value("Classroom rhythm is good"));
     }
 }
