@@ -1,8 +1,52 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-const username = ref('')
-const password = ref('')
+import { login } from '@/api/auth'
+import { useAuthStore } from '@/stores/auth'
+
+const router = useRouter()
+const authStore = useAuthStore()
+
+const loading = ref(false)
+const formRef = ref<FormInstance>()
+const form = reactive({
+  username: '',
+  password: '',
+})
+
+const rules: FormRules<typeof form> = {
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+}
+
+async function submitLogin() {
+  const isValid = await formRef.value
+    ?.validate()
+    .then(() => true)
+    .catch(() => false)
+
+  if (!isValid) {
+    return
+  }
+
+  loading.value = true
+
+  try {
+    const payload = await login({
+      username: form.username,
+      password: form.password,
+    })
+
+    authStore.acceptLogin(payload)
+    await router.push('/overview')
+  } catch {
+    ElMessage.error('登录失败，请检查用户名或密码')
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
 <template>
@@ -10,25 +54,34 @@ const password = ref('')
     <section class="login-card" aria-labelledby="login-title">
       <div class="login-copy">
         <p class="login-eyebrow">T-Observer</p>
-        <h1 id="login-title">T-Observer</h1>
-        <p class="login-subtitle">Local account sign in</p>
-        <p class="login-helper">
-          Sign in with your local account to continue into the observation workspace.
-        </p>
+        <h1 id="login-title">本地账号登录</h1>
+        <p class="login-subtitle">使用本地账号进入听评课工作台</p>
+        <p class="login-helper">登录后将进入系统概览页，后续功能页面将继续接入。</p>
       </div>
 
-      <el-form class="login-form" :model="{ username, password }" label-position="top">
-        <el-form-item label="Username">
-          <el-input v-model="username" placeholder="Enter username" autocomplete="username" />
+      <el-form
+        ref="formRef"
+        class="login-form"
+        :model="form"
+        :rules="rules"
+        label-position="top"
+      >
+        <el-form-item label="用户名" prop="username">
+          <el-input
+            v-model="form.username"
+            placeholder="请输入用户名"
+            autocomplete="username"
+          />
         </el-form-item>
 
-        <el-form-item label="Password">
+        <el-form-item label="密码" prop="password">
           <el-input
-            v-model="password"
+            v-model="form.password"
             type="password"
-            placeholder="Enter password"
+            placeholder="请输入密码"
             autocomplete="current-password"
             show-password
+            @keyup.enter="submitLogin"
           />
         </el-form-item>
 
@@ -36,9 +89,11 @@ const password = ref('')
           class="login-submit"
           type="primary"
           native-type="button"
+          :loading="loading"
           data-testid="login-submit"
+          @click="submitLogin"
         >
-          Sign In
+          登录
         </el-button>
       </el-form>
     </section>

@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { ArrowDown, Expand, Fold } from '@element-plus/icons-vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
 
 const desktopCollapsed = ref(false)
 const isMobile = ref(false)
@@ -14,23 +18,20 @@ const mobileSidebarId = 'app-sidebar-panel-mobile'
 const navItems = [
   {
     name: 'dashboard-overview',
-    label: 'Overview',
+    label: '概览',
     to: { name: 'dashboard-overview' },
   },
   {
     name: 'dashboard-tasks',
-    label: 'Tasks',
+    label: '任务',
     to: { name: 'dashboard-tasks' },
   },
   {
     name: 'dashboard-records',
-    label: 'Records',
+    label: '记录',
     to: { name: 'dashboard-records' },
   },
 ] as const
-
-type NavItem = (typeof navItems)[number]
-const defaultNavItem: NavItem = navItems[0]
 
 const updateViewport = () => {
   isMobile.value = window.innerWidth < 992
@@ -52,12 +53,12 @@ const sidebarCollapsed = computed(() => (!isMobile.value ? desktopCollapsed.valu
 const sidebarExpanded = computed(() => (isMobile.value ? mobileDrawerOpen.value : !desktopCollapsed.value))
 const sidebarControlsId = computed(() => (isMobile.value ? mobileSidebarId : desktopSidebarId))
 const sidebarWidth = computed(() => (sidebarCollapsed.value ? '88px' : '244px'))
-const currentRouteName = computed(() => String(route?.name ?? ''))
-const activeNavItem = computed<NavItem>(
-  () => navItems.find((item) => item.name === currentRouteName.value) ?? defaultNavItem,
+const currentRouteName = computed(() => String(route.name ?? ''))
+const activeNavItem = computed(
+  () => navItems.find((item) => item.name === currentRouteName.value) ?? navItems[0],
 )
 
-const toggleSidebar = () => {
+function toggleSidebar() {
   if (isMobile.value) {
     mobileDrawerOpen.value = !mobileDrawerOpen.value
     return
@@ -66,17 +67,20 @@ const toggleSidebar = () => {
   desktopCollapsed.value = !desktopCollapsed.value
 }
 
-const closeMobileDrawer = () => {
-  mobileDrawerOpen.value = false
-}
-
-const handleNavClick = () => {
+function handleNavClick() {
   if (isMobile.value) {
-    closeMobileDrawer()
+    mobileDrawerOpen.value = false
   }
 }
 
-const isNavActive = (name: string) => currentRouteName.value === name
+function isNavActive(name: string) {
+  return currentRouteName.value === name
+}
+
+async function handleLogout() {
+  authStore.logout()
+  await router.push('/login')
+}
 </script>
 
 <template>
@@ -89,16 +93,12 @@ const isNavActive = (name: string) => currentRouteName.value === name
       :with-header="false"
       :append-to-body="true"
     >
-      <aside
-        :id="mobileSidebarId"
-        class="sidebar sidebar--drawer"
-        data-testid="app-sidebar"
-      >
+      <aside :id="mobileSidebarId" class="sidebar sidebar--drawer" data-testid="app-sidebar">
         <div class="sidebar__brand">
           <div class="sidebar__brand-mark">T</div>
           <div class="sidebar__brand-copy">
             <strong>T-Observer</strong>
-            <span>Teacher dashboard</span>
+            <span>听评课工作台</span>
           </div>
         </div>
 
@@ -129,7 +129,7 @@ const isNavActive = (name: string) => currentRouteName.value === name
         <transition name="fade-slide">
           <div v-if="!sidebarCollapsed" class="sidebar__brand-copy">
             <strong>T-Observer</strong>
-            <span>Teacher dashboard</span>
+            <span>听评课工作台</span>
           </div>
         </transition>
       </div>
@@ -155,7 +155,7 @@ const isNavActive = (name: string) => currentRouteName.value === name
             text
             :aria-controls="sidebarControlsId"
             :aria-expanded="sidebarExpanded"
-            :aria-label="sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'"
+            :aria-label="sidebarExpanded ? '收起侧边栏' : '展开侧边栏'"
             @click="toggleSidebar"
           >
             <el-icon aria-hidden="true">
@@ -164,7 +164,7 @@ const isNavActive = (name: string) => currentRouteName.value === name
           </el-button>
 
           <el-breadcrumb separator="/">
-            <el-breadcrumb-item data-testid="app-breadcrumbs">Dashboard</el-breadcrumb-item>
+            <el-breadcrumb-item data-testid="app-breadcrumbs">工作台</el-breadcrumb-item>
             <el-breadcrumb-item>{{ activeNavItem.label }}</el-breadcrumb-item>
           </el-breadcrumb>
         </div>
@@ -175,18 +175,19 @@ const isNavActive = (name: string) => currentRouteName.value === name
             data-testid="user-menu-trigger"
             type="button"
             aria-haspopup="menu"
-            aria-label="Leader Zhang user menu"
+            :aria-label="`${authStore.realName} 用户菜单`"
           >
-            <el-avatar :size="32">LZ</el-avatar>
-            <span class="user-trigger__name">Leader Zhang</span>
+            <el-avatar :size="32">{{ authStore.realName.slice(0, 1) || '用' }}</el-avatar>
+            <span class="user-trigger__name">{{ authStore.realName }}</span>
+            <span class="user-trigger__role">{{ authStore.roleLabel }}</span>
             <el-icon class="user-trigger__chevron" aria-hidden="true">
               <ArrowDown />
             </el-icon>
           </button>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item>Profile</el-dropdown-item>
-              <el-dropdown-item divided>Sign Out</el-dropdown-item>
+              <el-dropdown-item>个人信息</el-dropdown-item>
+              <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -331,6 +332,11 @@ const isNavActive = (name: string) => currentRouteName.value === name
 
 .user-trigger__name {
   font-weight: 600;
+}
+
+.user-trigger__role {
+  font-size: 12px;
+  color: #64748b;
 }
 
 .user-trigger__chevron {
