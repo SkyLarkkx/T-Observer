@@ -9,7 +9,11 @@ import {
 import { fetchCurrentUser } from '@/api/auth'
 import MainLayout from '@/layouts/MainLayout.vue'
 import { useAuthStore } from '@/stores/auth'
+import type { RoleCode } from '@/types/auth'
+import LeaderTaskManageView from '@/views/leader/LeaderTaskManageView.vue'
 import LoginView from '@/views/login/LoginView.vue'
+import MemberTaskListView from '@/views/member/MemberTaskListView.vue'
+import RecordFormView from '@/views/member/RecordFormView.vue'
 
 const createPreviewPage = (title: string, description: string) =>
   defineComponent({
@@ -23,9 +27,19 @@ const createPreviewPage = (title: string, description: string) =>
     },
   })
 
-const OverviewPreview = createPreviewPage('概览', '这是当前主布局的占位预览页。')
-const TasksPreview = createPreviewPage('任务', '任务页面尚未接入，本页用于保持主布局内容完整。')
-const RecordsPreview = createPreviewPage('记录', '记录页面尚未接入，本页用于保持主布局内容完整。')
+const OverviewPreview = createPreviewPage('概览', '当前页面用于保留主布局概览入口。')
+
+function resolveRoleTaskRoute(roleCode: RoleCode | '') {
+  if (roleCode === 'LEADER') {
+    return { name: 'leader-task-manage' as const }
+  }
+
+  if (roleCode === 'MEMBER') {
+    return { name: 'member-task-list' as const }
+  }
+
+  return { name: 'dashboard-overview' as const }
+}
 
 const routes: RouteRecordRaw[] = [
   {
@@ -35,7 +49,7 @@ const routes: RouteRecordRaw[] = [
     children: [
       {
         path: '',
-        redirect: { name: 'dashboard-overview' },
+        redirect: { name: 'dashboard-tasks' },
       },
       {
         path: 'overview',
@@ -46,13 +60,25 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'tasks',
         name: 'dashboard-tasks',
-        component: TasksPreview,
+        component: OverviewPreview,
         meta: { requiresAuth: true },
       },
       {
-        path: 'records',
-        name: 'dashboard-records',
-        component: RecordsPreview,
+        path: 'member/tasks',
+        name: 'member-task-list',
+        component: MemberTaskListView,
+        meta: { requiresAuth: true },
+      },
+      {
+        path: 'member/tasks/:taskId/record',
+        name: 'member-record-form',
+        component: RecordFormView,
+        meta: { requiresAuth: true },
+      },
+      {
+        path: 'leader/tasks',
+        name: 'leader-task-manage',
+        component: LeaderTaskManageView,
         meta: { requiresAuth: true },
       },
     ],
@@ -94,7 +120,11 @@ export function createAppRouter(
     }
 
     if (guestOnly) {
-      return { name: 'dashboard-overview' }
+      return resolveRoleTaskRoute(authStore.roleCode)
+    }
+
+    if (to.name === 'dashboard-tasks') {
+      return resolveRoleTaskRoute(authStore.roleCode)
     }
 
     return true

@@ -15,23 +15,30 @@ const mobileDrawerOpen = ref(false)
 const desktopSidebarId = 'app-sidebar-panel-desktop'
 const mobileSidebarId = 'app-sidebar-panel-mobile'
 
-const navItems = [
+const taskRouteTarget = computed(() => {
+  if (authStore.roleCode === 'LEADER') {
+    return { name: 'leader-task-manage' as const }
+  }
+
+  if (authStore.roleCode === 'MEMBER') {
+    return { name: 'member-task-list' as const }
+  }
+
+  return { name: 'dashboard-tasks' as const }
+})
+
+const navItems = computed(() => [
   {
-    name: 'dashboard-overview',
+    names: ['dashboard-overview'],
     label: '概览',
-    to: { name: 'dashboard-overview' },
+    to: { name: 'dashboard-overview' as const },
   },
   {
-    name: 'dashboard-tasks',
+    names: ['dashboard-tasks', 'member-task-list', 'member-record-form', 'leader-task-manage'],
     label: '任务',
-    to: { name: 'dashboard-tasks' },
+    to: taskRouteTarget.value,
   },
-  {
-    name: 'dashboard-records',
-    label: '记录',
-    to: { name: 'dashboard-records' },
-  },
-] as const
+])
 
 const updateViewport = () => {
   isMobile.value = window.innerWidth < 992
@@ -50,13 +57,16 @@ onBeforeUnmount(() => {
 })
 
 const sidebarCollapsed = computed(() => (!isMobile.value ? desktopCollapsed.value : false))
-const sidebarExpanded = computed(() => (isMobile.value ? mobileDrawerOpen.value : !desktopCollapsed.value))
+const sidebarExpanded = computed(() =>
+  isMobile.value ? mobileDrawerOpen.value : !desktopCollapsed.value,
+)
 const sidebarControlsId = computed(() => (isMobile.value ? mobileSidebarId : desktopSidebarId))
 const sidebarWidth = computed(() => (sidebarCollapsed.value ? '88px' : '244px'))
 const currentRouteName = computed(() => String(route.name ?? ''))
 const activeNavItem = computed(
-  () => navItems.find((item) => item.name === currentRouteName.value) ?? navItems[0],
+  () => navItems.value.find((item) => item.names.includes(currentRouteName.value)) ?? navItems.value[0],
 )
+const activeNavLabel = computed(() => activeNavItem.value?.label ?? '工作台')
 
 function toggleSidebar() {
   if (isMobile.value) {
@@ -73,8 +83,8 @@ function handleNavClick() {
   }
 }
 
-function isNavActive(name: string) {
-  return currentRouteName.value === name
+function isNavActive(names: string[]) {
+  return names.includes(currentRouteName.value)
 }
 
 async function handleLogout() {
@@ -105,10 +115,10 @@ async function handleLogout() {
         <nav class="sidebar__nav" aria-label="Primary">
           <RouterLink
             v-for="item in navItems"
-            :key="item.name"
+            :key="item.label"
             :to="item.to"
-            :class="['sidebar__nav-item', { 'sidebar__nav-item--active': isNavActive(item.name) }]"
-            :aria-current="isNavActive(item.name) ? 'page' : undefined"
+            :class="['sidebar__nav-item', { 'sidebar__nav-item--active': isNavActive(item.names) }]"
+            :aria-current="isNavActive(item.names) ? 'page' : undefined"
             @click="handleNavClick"
           >
             {{ item.label }}
@@ -137,10 +147,10 @@ async function handleLogout() {
       <nav class="sidebar__nav" aria-label="Primary">
         <RouterLink
           v-for="item in navItems"
-          :key="item.name"
+          :key="item.label"
           :to="item.to"
-          :class="['sidebar__nav-item', { 'sidebar__nav-item--active': isNavActive(item.name) }]"
-          :aria-current="isNavActive(item.name) ? 'page' : undefined"
+          :class="['sidebar__nav-item', { 'sidebar__nav-item--active': isNavActive(item.names) }]"
+          :aria-current="isNavActive(item.names) ? 'page' : undefined"
         >
           {{ item.label }}
         </RouterLink>
@@ -165,7 +175,7 @@ async function handleLogout() {
 
           <el-breadcrumb separator="/">
             <el-breadcrumb-item data-testid="app-breadcrumbs">工作台</el-breadcrumb-item>
-            <el-breadcrumb-item>{{ activeNavItem.label }}</el-breadcrumb-item>
+            <el-breadcrumb-item>{{ activeNavLabel }}</el-breadcrumb-item>
           </el-breadcrumb>
         </div>
 
