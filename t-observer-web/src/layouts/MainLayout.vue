@@ -11,6 +11,13 @@ type BreadcrumbItem = {
   testId?: string
 }
 
+type NavItem = {
+  names: string[]
+  label: string
+  to: RouteLocationRaw
+  testId: string
+}
+
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -33,18 +40,47 @@ const taskRouteTarget = computed<RouteLocationRaw>(() => {
   return { name: 'dashboard-tasks' }
 })
 
-const navItems = computed(() => [
+const baseNavItems = computed<NavItem[]>(() => [
   {
     names: ['dashboard-overview'],
     label: '概览',
     to: { name: 'dashboard-overview' as const },
+    testId: 'nav-overview',
   },
   {
     names: ['dashboard-tasks', 'member-task-list', 'member-record-form', 'leader-task-manage'],
     label: '任务',
     to: taskRouteTarget.value,
+    testId: 'nav-tasks',
   },
 ])
+
+const reviewRouteTarget = computed<RouteLocationRaw>(() => ({
+  name: 'leader-review-form',
+  params: { recordId: 104 },
+}))
+
+const navItems = computed<NavItem[]>(() => {
+  if (authStore.roleCode !== 'LEADER') {
+    return baseNavItems.value
+  }
+
+  return [
+    ...baseNavItems.value,
+    {
+      names: ['leader-review-form'],
+      label: '评审',
+      to: reviewRouteTarget.value,
+      testId: 'nav-leader-reviews',
+    },
+    {
+      names: ['leader-analytics'],
+      label: '分析',
+      to: { name: 'leader-analytics' as const },
+      testId: 'nav-leader-analytics',
+    },
+  ]
+})
 
 const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
   switch (route.name) {
@@ -57,6 +93,17 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
         },
         { label: '记录填写' },
       ]
+    case 'leader-review-form':
+      return [
+        {
+          label: '任务',
+          to: { name: 'leader-task-manage' },
+          testId: 'breadcrumb-link-leader-task-manage',
+        },
+        { label: '评审' },
+      ]
+    case 'leader-analytics':
+      return [{ label: '分析' }]
     case 'member-task-list':
     case 'leader-task-manage':
     case 'dashboard-tasks':
@@ -175,6 +222,7 @@ async function handleLogout() {
             :key="item.label"
             type="button"
             :class="['sidebar__nav-item', { 'sidebar__nav-item--active': isNavActive(item.names) }]"
+            :data-testid="item.testId"
             :aria-current="isNavActive(item.names) ? 'page' : undefined"
             @click="navigateByNav(item.to)"
           >
@@ -207,6 +255,7 @@ async function handleLogout() {
           :key="item.label"
           type="button"
           :class="['sidebar__nav-item', { 'sidebar__nav-item--active': isNavActive(item.names) }]"
+          :data-testid="item.testId"
           :aria-current="isNavActive(item.names) ? 'page' : undefined"
           @click="navigateByNav(item.to)"
         >

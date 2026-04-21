@@ -46,6 +46,10 @@ insert into observation_task (id, title, leader_id, observer_id, teacher_name, c
 select 3, '高一数学听课 3', 1, 2, '赵老师', '函数概念', '2026-04-22 09:00:00', '2026-04-24 18:00:00', 'COMPLETED', '观察提问'
 where not exists (select 1 from observation_task where id = 3);
 
+insert into observation_task (id, title, leader_id, observer_id, teacher_name, course_name, lesson_time, deadline, status, remark)
+select 4, 'Task 8 Pending Review Demo', 1, 2, 'Demo Teacher', 'Demo Lesson', '2026-04-23 09:00:00', '2026-04-25 18:00:00', 'COMPLETED', 'Pending review sample'
+where not exists (select 1 from observation_task where id = 4);
+
 insert into observation_record (id, task_id, observer_id, teacher_name, strengths, weaknesses, suggestions, status, reject_reason, submitted_at, approved_at)
 select 101, 1, 2, '赵老师', '课堂节奏清晰，问题导入自然。', '小组讨论时间略短。', '增加学生展示和追问环节。', 'APPROVED', null, '2026-04-20 10:00:00', '2026-04-20 11:00:00'
 where not exists (select 1 from observation_record where id = 101);
@@ -57,6 +61,10 @@ where not exists (select 1 from observation_record where id = 102);
 insert into observation_record (id, task_id, observer_id, teacher_name, strengths, weaknesses, suggestions, status, reject_reason, submitted_at, approved_at)
 select 103, 3, 2, '赵老师', '例题层次清楚，学生参与度较高。', '课堂总结可以更聚焦方法迁移。', '结尾增加学生自评和方法归纳。', 'APPROVED', null, '2026-04-22 10:00:00', '2026-04-22 11:00:00'
 where not exists (select 1 from observation_record where id = 103);
+
+insert into observation_record (id, task_id, observer_id, teacher_name, strengths, weaknesses, suggestions, status, reject_reason, submitted_at, approved_at)
+select 104, 4, 2, 'Demo Teacher', 'Clear lesson structure and active learner participation.', 'Closure can connect concepts more explicitly.', 'Add a brief student reflection before the final summary.', 'SUBMITTED', null, '2026-04-23 10:00:00', null
+where not exists (select 1 from observation_record where id = 104);
 
 insert into observation_score (record_id, dimension_code, dimension_name, score_value)
 select 101, 'TEACHING_DESIGN', 'Teaching Design', 4.5
@@ -117,3 +125,23 @@ where not exists (select 1 from observation_score where record_id = 103 and dime
 insert into observation_score (record_id, dimension_code, dimension_name, score_value)
 select 103, 'TEACHING_EFFECTIVENESS', 'Teaching Effectiveness', 4.5
 where not exists (select 1 from observation_score where record_id = 103 and dimension_code = 'TEACHING_EFFECTIVENESS');
+
+insert into observation_score (record_id, dimension_code, dimension_name, score_value)
+select 104, 'TEACHING_DESIGN', 'Teaching Design', 4.1
+where not exists (select 1 from observation_score where record_id = 104 and dimension_code = 'TEACHING_DESIGN');
+
+insert into observation_score (record_id, dimension_code, dimension_name, score_value)
+select 104, 'CLASSROOM_ORGANIZATION', 'Classroom Organization', 4.0
+where not exists (select 1 from observation_score where record_id = 104 and dimension_code = 'CLASSROOM_ORGANIZATION');
+
+insert into observation_score (record_id, dimension_code, dimension_name, score_value)
+select 104, 'TEACHING_CONTENT', 'Teaching Content', 4.2
+where not exists (select 1 from observation_score where record_id = 104 and dimension_code = 'TEACHING_CONTENT');
+
+insert into observation_score (record_id, dimension_code, dimension_name, score_value)
+select 104, 'INTERACTION_FEEDBACK', 'Interaction Feedback', 3.9
+where not exists (select 1 from observation_score where record_id = 104 and dimension_code = 'INTERACTION_FEEDBACK');
+
+insert into observation_score (record_id, dimension_code, dimension_name, score_value)
+select 104, 'TEACHING_EFFECTIVENESS', 'Teaching Effectiveness', 4.0
+where not exists (select 1 from observation_score where record_id = 104 and dimension_code = 'TEACHING_EFFECTIVENESS');
