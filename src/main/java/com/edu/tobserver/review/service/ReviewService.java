@@ -36,6 +36,15 @@ public class ReviewService {
         this.auditLogService = auditLogService;
     }
 
+    public ObservationRecordVo findDetail(Long recordId) {
+        requireLeader();
+        ObservationRecord observationRecord = observationRecordMapper.findById(recordId);
+        if (observationRecord == null) {
+            throw new BusinessException(404, "听课记录不存在");
+        }
+        return toVo(observationRecord);
+    }
+
     @Transactional
     public ObservationRecordVo approve(Long recordId) {
         requireLeader();

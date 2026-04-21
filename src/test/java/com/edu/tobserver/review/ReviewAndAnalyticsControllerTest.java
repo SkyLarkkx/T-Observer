@@ -1,6 +1,7 @@
 package com.edu.tobserver.review;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -88,6 +89,17 @@ class ReviewAndAnalyticsControllerTest {
         insertScore(1L, "TEACHING_CONTENT", "Teaching Content", new BigDecimal("4.2"));
         insertScore(1L, "INTERACTION_FEEDBACK", "Interaction Feedback", new BigDecimal("4.4"));
         insertScore(1L, "TEACHING_EFFECTIVENESS", "Teaching Effectiveness", new BigDecimal("4.3"));
+    }
+
+    @Test
+    void shouldFetchReviewRecordDetail() throws Exception {
+        mockMvc.perform(get("/api/reviews/1")
+                        .header("X-Auth-Token", leaderToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(1))
+                .andExpect(jsonPath("$.data.teacherName").value("Teacher Zhao"))
+                .andExpect(jsonPath("$.data.strengths").value("Good pacing"))
+                .andExpect(jsonPath("$.data.scores[0].dimensionCode").value("TEACHING_DESIGN"));
     }
 
     @Test
