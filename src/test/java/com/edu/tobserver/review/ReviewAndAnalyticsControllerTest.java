@@ -133,7 +133,7 @@ class ReviewAndAnalyticsControllerTest {
     }
 
     @Test
-    void shouldReturnSampleInsufficientWhenApprovedRecordsLessThanThree() throws Exception {
+    void shouldReturnNoDataConclusionWhenApprovedRecordsAreEmpty() throws Exception {
         mockMvc.perform(post("/api/analytics/generate")
                         .header("X-Auth-Token", leaderToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -143,7 +143,23 @@ class ReviewAndAnalyticsControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.sampleCount").value(0))
                 .andExpect(jsonPath("$.data.radarChart").doesNotExist())
-                .andExpect(jsonPath("$.data.conclusion").value("样本不足，暂不生成雷达图"));
+                .andExpect(jsonPath("$.data.conclusion").value("所选时间范围内暂无已通过记录，无法生成分析"));
+    }
+
+    @Test
+    void shouldGenerateRadarChartWhenApprovedRecordsReachOne() throws Exception {
+        insertApprovedRecord(2L, "Teacher Zhao", Timestamp.valueOf("2026-04-10 10:00:00"));
+
+        mockMvc.perform(post("/api/analytics/generate")
+                        .header("X-Auth-Token", leaderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"teacherName":"Teacher Zhao","startTime":"2026-04-10T00:00:00","endTime":"2026-04-30T23:59:59"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sampleCount").value(1))
+                .andExpect(jsonPath("$.data.radarChart.values[0]").value(4.5))
+                .andExpect(jsonPath("$.data.conclusion").value("已根据 1 条已通过记录生成分析"));
     }
 
     @Test
@@ -163,7 +179,8 @@ class ReviewAndAnalyticsControllerTest {
                 .andExpect(jsonPath("$.data.periodType").value("RANGE"))
                 .andExpect(jsonPath("$.data.periodValue").value("2026-04-10T00:00:00 ~ 2026-04-30T23:59:59"))
                 .andExpect(jsonPath("$.data.sampleCount").value(3))
-                .andExpect(jsonPath("$.data.radarChart.values[0]").value(4.5));
+                .andExpect(jsonPath("$.data.radarChart.values[0]").value(4.5))
+                .andExpect(jsonPath("$.data.conclusion").value("已根据 3 条已通过记录生成分析"));
     }
 
     private void insertApprovedRecord(Long recordId, String teacherName, Timestamp approvedAt) {

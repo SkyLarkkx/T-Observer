@@ -124,7 +124,7 @@ async function handleGenerate() {
     <section v-if="report" class="analytics-page__result">
       <div class="analytics-page__summary">
         <div>
-          <span>样本数</span>
+          <span>分析样本数</span>
           <strong>{{ report.sampleCount }}</strong>
         </div>
         <div>

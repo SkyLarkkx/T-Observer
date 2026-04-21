@@ -27,7 +27,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class AnalyticsService {
 
-    private static final String LOW_SAMPLE_CONCLUSION = "样本不足，暂不生成雷达图";
+    private static final String NO_APPROVED_RECORDS_CONCLUSION = "所选时间范围内暂无已通过记录，无法生成分析";
     private static final DateTimeFormatter PERIOD_VALUE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
     private final AnalyticsMapper analyticsMapper;
@@ -52,11 +52,11 @@ public class AnalyticsService {
 
         AnalyticsReportVo.RadarChartVo radarChart = null;
         String conclusion;
-        if (approvedRecords.size() < 3) {
-            conclusion = LOW_SAMPLE_CONCLUSION;
+        if (approvedRecords.isEmpty()) {
+            conclusion = NO_APPROVED_RECORDS_CONCLUSION;
         } else {
             radarChart = buildRadarChart(approvedRecords);
-            conclusion = "已根据 " + approvedRecords.size() + " 条已审批记录生成雷达图";
+            conclusion = "已根据 " + approvedRecords.size() + " 条已通过记录生成分析";
         }
 
         AnalyticsReportVo report = AnalyticsReportVo.builder()

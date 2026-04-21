@@ -15,16 +15,19 @@ describe('AnalyticsView', () => {
     vi.clearAllMocks()
   })
 
-  it('calls the analytics API and renders sample-insufficient result', async () => {
+  it('calls the analytics API and renders analysis sample count', async () => {
     vi.mocked(generateAnalytics).mockResolvedValue({
       teacherName: 'Teacher Zhao',
       periodType: 'RANGE',
       periodValue: '2026-04-10T00:00:00 ~ 2026-04-30T23:59:59',
-      sampleCount: 2,
-      radarChart: null,
+      sampleCount: 1,
+      radarChart: {
+        indicators: [{ name: 'Teaching Design', max: 5 }],
+        values: [4.5],
+      },
       strengthSummary: 'Good pacing',
       weaknessSummary: 'Needs more interaction',
-      conclusion: '样本不足，暂不生成雷达图',
+      conclusion: '已根据 1 条已通过记录生成分析',
     })
 
     const wrapper = mount(AnalyticsView, {
@@ -49,7 +52,9 @@ describe('AnalyticsView', () => {
       })
     })
 
-    expect(wrapper.text()).toContain('样本不足')
+    expect(wrapper.text()).toContain('分析样本数')
+    expect(wrapper.text()).toContain('1')
+    expect(wrapper.text()).toContain('已根据 1 条已通过记录生成分析')
     expect(wrapper.text()).toContain('Good pacing')
   })
 })
