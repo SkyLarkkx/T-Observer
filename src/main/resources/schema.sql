@@ -72,3 +72,5 @@ create table if not exists radar_report (
     conclusion varchar(255) not null,
     generated_at timestamp not null default current_timestamp
 );
+
+alter table radar_report modify column period_value varchar(64) not null;
