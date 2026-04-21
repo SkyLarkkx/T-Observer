@@ -13,9 +13,9 @@ public class AnalyticsGenerateRequest {
     @NotBlank(message = "授课教师不能为空")
     private String teacherName;
 
-    @NotBlank(message = "统计周期类型不能为空")
-    private String periodType;
+    @NotBlank(message = "分析开始时间不能为空")
+    private String startTime;
 
-    @NotBlank(message = "统计周期值不能为空")
-    private String periodValue;
+    @NotBlank(message = "分析结束时间不能为空")
+    private String endTime;
 }

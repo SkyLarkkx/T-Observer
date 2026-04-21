@@ -30,7 +30,7 @@ public interface AnalyticsMapper {
             where status = 'APPROVED'
               and teacher_name = #{teacherName}
               and approved_at >= #{startTime}
-              and approved_at < #{endTime}
+              and approved_at <= #{endTime}
             order by approved_at desc, id desc
             """)
     List<ObservationRecord> findApprovedRecords(@Param("teacherName") String teacherName,

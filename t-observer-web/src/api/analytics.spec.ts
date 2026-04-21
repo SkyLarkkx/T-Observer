@@ -21,7 +21,8 @@ describe('analytics api', () => {
         message: 'success',
         data: {
           teacherName: 'Teacher Zhao',
-          periodValue: '2026-04',
+          periodType: 'RANGE',
+          periodValue: '2026-04-10T00:00:00 ~ 2026-04-30T23:59:59',
           sampleCount: 3,
           radarChart: {
             indicators: [{ name: 'Teaching Design', max: 5 }],
@@ -36,14 +37,14 @@ describe('analytics api', () => {
 
     const result = await generateAnalytics({
       teacherName: 'Teacher Zhao',
-      periodType: 'MONTH',
-      periodValue: '2026-04',
+      startTime: '2026-04-10T00:00:00',
+      endTime: '2026-04-30T23:59:59',
     })
 
     expect(http.post).toHaveBeenCalledWith('/analytics/generate', {
       teacherName: 'Teacher Zhao',
-      periodType: 'MONTH',
-      periodValue: '2026-04',
+      startTime: '2026-04-10T00:00:00',
+      endTime: '2026-04-30T23:59:59',
     })
     expect(result.sampleCount).toBe(3)
     expect(result.radarChart?.values).toEqual([4.5])

@@ -138,12 +138,58 @@ class ReviewAndAnalyticsControllerTest {
                         .header("X-Auth-Token", leaderToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"teacherName":"Teacher Zhao","periodType":"MONTH","periodValue":"2026-04"}
+                                {"teacherName":"Teacher Zhao","startTime":"2026-04-01T00:00:00","endTime":"2026-04-30T23:59:59"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.sampleCount").value(0))
                 .andExpect(jsonPath("$.data.radarChart").doesNotExist())
                 .andExpect(jsonPath("$.data.conclusion").value("样本不足，暂不生成雷达图"));
+    }
+
+    @Test
+    void shouldGenerateAnalyticsForApprovedRecordsWithinCustomTimeRange() throws Exception {
+        insertApprovedRecord(2L, "Teacher Zhao", Timestamp.valueOf("2026-04-10 10:00:00"));
+        insertApprovedRecord(3L, "Teacher Zhao", Timestamp.valueOf("2026-04-15 10:00:00"));
+        insertApprovedRecord(4L, "Teacher Zhao", Timestamp.valueOf("2026-04-20 10:00:00"));
+        insertApprovedRecord(5L, "Teacher Zhao", Timestamp.valueOf("2026-05-01 10:00:00"));
+
+        mockMvc.perform(post("/api/analytics/generate")
+                        .header("X-Auth-Token", leaderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"teacherName":"Teacher Zhao","startTime":"2026-04-10T00:00:00","endTime":"2026-04-30T23:59:59"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.periodType").value("RANGE"))
+                .andExpect(jsonPath("$.data.periodValue").value("2026-04-10T00:00:00 ~ 2026-04-30T23:59:59"))
+                .andExpect(jsonPath("$.data.sampleCount").value(3))
+                .andExpect(jsonPath("$.data.radarChart.values[0]").value(4.5));
+    }
+
+    private void insertApprovedRecord(Long recordId, String teacherName, Timestamp approvedAt) {
+        jdbcTemplate.update("""
+                insert into observation_record
+                    (id, task_id, observer_id, teacher_name, strengths, weaknesses, suggestions, status, reject_reason, submitted_at, approved_at)
+                values
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                recordId,
+                1L,
+                2L,
+                teacherName,
+                "Strong design " + recordId,
+                "Needs tighter feedback " + recordId,
+                "Add structured reflection " + recordId,
+                "APPROVED",
+                null,
+                Timestamp.valueOf("2026-04-10 09:00:00"),
+                approvedAt);
+
+        insertScore(recordId, "TEACHING_DESIGN", "Teaching Design", new BigDecimal("4.5"));
+        insertScore(recordId, "CLASSROOM_ORGANIZATION", "Classroom Organization", new BigDecimal("4.0"));
+        insertScore(recordId, "TEACHING_CONTENT", "Teaching Content", new BigDecimal("4.2"));
+        insertScore(recordId, "INTERACTION_FEEDBACK", "Interaction Feedback", new BigDecimal("4.4"));
+        insertScore(recordId, "TEACHING_EFFECTIVENESS", "Teaching Effectiveness", new BigDecimal("4.3"));
     }
 
     private void insertScore(Long recordId, String dimensionCode, String dimensionName, BigDecimal scoreValue) {

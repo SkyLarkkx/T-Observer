@@ -9,8 +9,8 @@ import type { AnalyticsReport } from '@/types/analytics'
 
 const form = reactive<AnalyticsGeneratePayload>({
   teacherName: '',
-  periodType: 'MONTH',
-  periodValue: '',
+  startTime: '',
+  endTime: '',
 })
 const report = ref<AnalyticsReport | null>(null)
 const loading = ref(false)
@@ -22,12 +22,26 @@ function getAxiosMessage(error: unknown, fallback: string) {
   )
 }
 
+function normalizeDateTime(value: string) {
+  const trimmed = value.trim()
+  if (trimmed.length === 16) {
+    return `${trimmed}:00`
+  }
+  return trimmed
+}
+
 async function handleGenerate() {
   const teacherName = form.teacherName.trim()
-  const periodValue = form.periodValue.trim()
+  const startTime = normalizeDateTime(form.startTime)
+  const endTime = normalizeDateTime(form.endTime)
 
-  if (!teacherName || !periodValue) {
-    ElMessage.warning('请填写授课教师和分析月份')
+  if (!teacherName || !startTime || !endTime) {
+    ElMessage.warning('请填写授课教师和分析时间')
+    return
+  }
+
+  if (new Date(startTime).getTime() > new Date(endTime).getTime()) {
+    ElMessage.warning('分析开始时间不能晚于结束时间')
     return
   }
 
@@ -37,8 +51,8 @@ async function handleGenerate() {
   try {
     report.value = await generateAnalytics({
       teacherName,
-      periodType: form.periodType,
-      periodValue,
+      startTime,
+      endTime,
     })
   } catch (error) {
     errorMessage.value = getAxiosMessage(error, '分析结果生成失败，请稍后重试')
@@ -70,12 +84,22 @@ async function handleGenerate() {
       </label>
 
       <label>
-        <span>分析月份</span>
+        <span>分析开始时间</span>
         <input
-          v-model="form.periodValue"
+          v-model="form.startTime"
           class="analytics-page__input"
-          data-testid="analytics-period"
-          placeholder="例如：2026-04"
+          data-testid="analytics-start-time"
+          type="datetime-local"
+        />
+      </label>
+
+      <label>
+        <span>分析结束时间</span>
+        <input
+          v-model="form.endTime"
+          class="analytics-page__input"
+          data-testid="analytics-end-time"
+          type="datetime-local"
         />
       </label>
 
@@ -104,7 +128,7 @@ async function handleGenerate() {
           <strong>{{ report.sampleCount }}</strong>
         </div>
         <div>
-          <span>分析周期</span>
+          <span>分析时间</span>
           <strong>{{ report.periodValue }}</strong>
         </div>
       </div>
@@ -165,7 +189,7 @@ async function handleGenerate() {
 
 .analytics-page__panel {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  grid-template-columns: minmax(180px, 1fr) minmax(190px, 1fr) minmax(190px, 1fr) auto;
   align-items: end;
   gap: 16px;
 }
@@ -238,6 +262,12 @@ async function handleGenerate() {
   margin: 10px 0 0;
   color: #606266;
   line-height: 1.6;
+}
+
+@media (max-width: 1024px) {
+  .analytics-page__panel {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
 }
 
 @media (max-width: 768px) {

@@ -5,6 +5,7 @@ export interface RadarChartData {
 
 export interface AnalyticsReport {
   teacherName: string
+  periodType: string
   periodValue: string
   sampleCount: number
   radarChart: RadarChartData | null

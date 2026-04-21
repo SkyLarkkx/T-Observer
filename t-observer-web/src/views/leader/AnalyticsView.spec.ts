@@ -18,7 +18,8 @@ describe('AnalyticsView', () => {
   it('calls the analytics API and renders sample-insufficient result', async () => {
     vi.mocked(generateAnalytics).mockResolvedValue({
       teacherName: 'Teacher Zhao',
-      periodValue: '2026-04',
+      periodType: 'RANGE',
+      periodValue: '2026-04-10T00:00:00 ~ 2026-04-30T23:59:59',
       sampleCount: 2,
       radarChart: null,
       strengthSummary: 'Good pacing',
@@ -36,14 +37,15 @@ describe('AnalyticsView', () => {
     })
 
     await wrapper.find('[data-testid="analytics-teacher"]').setValue('Teacher Zhao')
-    await wrapper.find('[data-testid="analytics-period"]').setValue('2026-04')
+    await wrapper.find('[data-testid="analytics-start-time"]').setValue('2026-04-10T00:00')
+    await wrapper.find('[data-testid="analytics-end-time"]').setValue('2026-04-30T23:59')
     await wrapper.find('[data-testid="analytics-submit"]').trigger('click')
 
     await vi.waitFor(() => {
       expect(generateAnalytics).toHaveBeenCalledWith({
         teacherName: 'Teacher Zhao',
-        periodType: 'MONTH',
-        periodValue: '2026-04',
+        startTime: '2026-04-10T00:00:00',
+        endTime: '2026-04-30T23:59:00',
       })
     })
 

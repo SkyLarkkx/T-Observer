@@ -15,8 +15,8 @@ import com.edu.tobserver.record.mapper.ObservationScoreMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.time.Year;
-import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -28,6 +28,7 @@ import org.springframework.stereotype.Service;
 public class AnalyticsService {
 
     private static final String LOW_SAMPLE_CONCLUSION = "样本不足，暂不生成雷达图";
+    private static final DateTimeFormatter PERIOD_VALUE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
     private final AnalyticsMapper analyticsMapper;
     private final ObservationScoreMapper observationScoreMapper;
@@ -40,7 +41,7 @@ public class AnalyticsService {
 
     public AnalyticsReportVo generate(AnalyticsGenerateRequest request) {
         requireLeader();
-        TimeRange timeRange = parseTimeRange(request.getPeriodType(), request.getPeriodValue());
+        TimeRange timeRange = parseTimeRange(request.getStartTime(), request.getEndTime());
         List<ObservationRecord> approvedRecords = analyticsMapper.findApprovedRecords(
                 request.getTeacherName().trim(),
                 timeRange.startTime(),
@@ -60,8 +61,8 @@ public class AnalyticsService {
 
         AnalyticsReportVo report = AnalyticsReportVo.builder()
                 .teacherName(request.getTeacherName().trim())
-                .periodType(request.getPeriodType().trim())
-                .periodValue(request.getPeriodValue().trim())
+                .periodType("RANGE")
+                .periodValue(formatPeriodValue(timeRange))
                 .sampleCount(approvedRecords.size())
                 .radarChart(radarChart)
                 .strengthSummary(strengthSummary)
@@ -80,20 +81,23 @@ public class AnalyticsService {
         }
     }
 
-    private TimeRange parseTimeRange(String periodType, String periodValue) {
-        String normalizedType = periodType.trim().toUpperCase();
-        String normalizedValue = periodValue.trim();
-        return switch (normalizedType) {
-            case "MONTH" -> {
-                YearMonth yearMonth = YearMonth.parse(normalizedValue);
-                yield new TimeRange(yearMonth.atDay(1).atStartOfDay(), yearMonth.plusMonths(1).atDay(1).atStartOfDay());
+    private TimeRange parseTimeRange(String startTimeValue, String endTimeValue) {
+        try {
+            LocalDateTime startTime = LocalDateTime.parse(startTimeValue.trim());
+            LocalDateTime endTime = LocalDateTime.parse(endTimeValue.trim());
+            if (startTime.isAfter(endTime)) {
+                throw new BusinessException(400, "分析开始时间不能晚于结束时间");
             }
-            case "YEAR" -> {
-                Year year = Year.parse(normalizedValue);
-                yield new TimeRange(year.atDay(1).atStartOfDay(), year.plusYears(1).atDay(1).atStartOfDay());
-            }
-            default -> throw new BusinessException(400, "统计周期类型仅支持 MONTH 或 YEAR");
-        };
+            return new TimeRange(startTime, endTime);
+        } catch (DateTimeParseException ex) {
+            throw new BusinessException(400, "分析时间格式不正确");
+        }
+    }
+
+    private String formatPeriodValue(TimeRange timeRange) {
+        return timeRange.startTime().format(PERIOD_VALUE_FORMATTER)
+                + " ~ "
+                + timeRange.endTime().format(PERIOD_VALUE_FORMATTER);
     }
 
     private AnalyticsReportVo.RadarChartVo buildRadarChart(List<ObservationRecord> approvedRecords) {
@@ -137,11 +141,11 @@ public class AnalyticsService {
             return configuredName;
         }
         return switch (dimensionCode) {
-            case TEACHING_DESIGN -> "Teaching Design";
-            case CLASSROOM_ORGANIZATION -> "Classroom Organization";
-            case TEACHING_CONTENT -> "Teaching Content";
-            case INTERACTION_FEEDBACK -> "Interaction Feedback";
-            case TEACHING_EFFECTIVENESS -> "Teaching Effectiveness";
+            case TEACHING_DESIGN -> "教学设计";
+            case CLASSROOM_ORGANIZATION -> "课堂组织";
+            case TEACHING_CONTENT -> "教学内容";
+            case INTERACTION_FEEDBACK -> "互动反馈";
+            case TEACHING_EFFECTIVENESS -> "教学效果";
         };
     }
 

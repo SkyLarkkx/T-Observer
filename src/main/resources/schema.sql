@@ -64,7 +64,7 @@ create table if not exists radar_report (
     id bigint primary key auto_increment,
     teacher_name varchar(64) not null,
     period_type varchar(32) not null,
-    period_value varchar(32) not null,
+    period_value varchar(64) not null,
     sample_count int not null,
     radar_json text,
     strength_summary text not null,

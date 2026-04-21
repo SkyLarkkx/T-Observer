@@ -5,8 +5,8 @@ import { http } from './http'
 
 export type AnalyticsGeneratePayload = {
   teacherName: string
-  periodType: string
-  periodValue: string
+  startTime: string
+  endTime: string
 }
 
 export async function generateAnalytics(payload: AnalyticsGeneratePayload) {
