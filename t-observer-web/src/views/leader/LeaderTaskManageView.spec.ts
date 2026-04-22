@@ -26,20 +26,27 @@ describe('LeaderTaskManageView', () => {
   })
 
   it('renders the leader task list from API data', async () => {
-    vi.mocked(fetchTasks).mockResolvedValue([
-      {
-        id: 1,
-        title: '高一数学听课',
-        observerId: 2,
-        observerName: '李老师',
-        teacherName: '赵老师',
-        courseName: '函数概念',
-        lessonTime: '2026-04-20T09:00:00',
-        deadline: '2026-04-22T18:00:00',
-        status: 'PENDING',
-        remark: '重点观察课堂互动',
-      },
-    ])
+    vi.mocked(fetchTasks).mockResolvedValue({
+      list: [
+        {
+          id: 1,
+          title: '高一数学听课',
+          observerId: 2,
+          observerName: '李老师',
+          teacherName: '赵老师',
+          courseName: '函数概念',
+          lessonTime: '2026-04-20T09:00:00',
+          deadline: '2026-04-22T18:00:00',
+          status: 'PENDING',
+          recordStatus: null,
+          remark: '重点观察课堂互动',
+          rejectReason: null,
+        },
+      ],
+      total: 1,
+      pageNum: 1,
+      pageSize: 100,
+    })
 
     const wrapper = mount(LeaderTaskManageView, {
       global: {
@@ -58,7 +65,12 @@ describe('LeaderTaskManageView', () => {
   })
 
   it('shows the empty state when the leader has no tasks yet', async () => {
-    vi.mocked(fetchTasks).mockResolvedValue([])
+    vi.mocked(fetchTasks).mockResolvedValue({
+      list: [],
+      total: 0,
+      pageNum: 1,
+      pageSize: 100,
+    })
     vi.mocked(fetchMembers).mockResolvedValue([
       {
         userId: 2,
@@ -84,7 +96,12 @@ describe('LeaderTaskManageView', () => {
   })
 
   it('loads member options and uses member name selection instead of raw id input', async () => {
-    vi.mocked(fetchTasks).mockResolvedValue([])
+    vi.mocked(fetchTasks).mockResolvedValue({
+      list: [],
+      total: 0,
+      pageNum: 1,
+      pageSize: 100,
+    })
     vi.mocked(fetchMembers).mockResolvedValue([
       {
         userId: 2,

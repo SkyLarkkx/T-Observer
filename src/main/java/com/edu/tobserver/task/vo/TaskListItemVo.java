@@ -16,4 +16,6 @@ public class TaskListItemVo {
     private LocalDateTime deadline;
     private String status;
     private String remark;
+    private String recordStatus;
+    private String rejectReason;
 }

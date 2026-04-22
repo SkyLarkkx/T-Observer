@@ -36,11 +36,14 @@ class ObservationTaskControllerTest {
     private MockMvc mockMvc;
 
     private String leaderToken;
+    private String memberToken;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
         leaderToken = tokenSessionService.create(new LoginUser(1L, "leader01", "Leader One", RoleCode.LEADER));
+        memberToken = tokenSessionService.create(new LoginUser(2L, "member01", "Member One", RoleCode.MEMBER));
+        jdbcTemplate.update("delete from observation_record");
         jdbcTemplate.update("delete from audit_log");
         jdbcTemplate.update("delete from observation_task");
     }
@@ -95,7 +98,86 @@ class ObservationTaskControllerTest {
                         .param("observerId", "2")
                         .param("status", "PENDING"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].title").value("Seeded Observation Task"))
-                .andExpect(jsonPath("$.data[0].status").value("PENDING"));
+                .andExpect(jsonPath("$.data.list[0].title").value("Seeded Observation Task"))
+                .andExpect(jsonPath("$.data.list[0].status").value("PENDING"))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.pageNum").value(1))
+                .andExpect(jsonPath("$.data.pageSize").value(10));
+    }
+
+    @Test
+    void memberShouldListTasksWithPaginationAndReturnedRecordReason() throws Exception {
+        insertTask(
+                1L,
+                "Normal Pending Task",
+                2L,
+                "Teacher Zhao",
+                "Function Concept",
+                "PENDING",
+                "Short remark");
+        insertTask(
+                2L,
+                "Returned Pending Task",
+                2L,
+                "Teacher Wang",
+                "Reading",
+                "PENDING",
+                "Long remark for member task cards");
+        jdbcTemplate.update("""
+                insert into observation_record
+                    (id, task_id, observer_id, teacher_name, strengths, weaknesses, suggestions, status, reject_reason, submitted_at, approved_at)
+                values
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                11L,
+                2L,
+                2L,
+                "Teacher Wang",
+                "Strength",
+                "Weakness",
+                "Suggestion",
+                "RETURNED",
+                "Please add concrete classroom interaction evidence before resubmitting.",
+                java.sql.Timestamp.valueOf("2026-04-20 10:00:00"),
+                null);
+
+        mockMvc.perform(get("/api/tasks")
+                        .header("X-Auth-Token", memberToken)
+                        .param("status", "PENDING")
+                        .param("pageNum", "1")
+                        .param("pageSize", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.list.length()").value(1))
+                .andExpect(jsonPath("$.data.list[0].title").value("Returned Pending Task"))
+                .andExpect(jsonPath("$.data.list[0].recordStatus").value("RETURNED"))
+                .andExpect(jsonPath("$.data.list[0].rejectReason").value("Please add concrete classroom interaction evidence before resubmitting."))
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.pageNum").value(1))
+                .andExpect(jsonPath("$.data.pageSize").value(1));
+    }
+
+    private void insertTask(Long id,
+                            String title,
+                            Long observerId,
+                            String teacherName,
+                            String courseName,
+                            String status,
+                            String remark) {
+        jdbcTemplate.update("""
+                insert into observation_task
+                    (id, title, leader_id, observer_id, teacher_name, course_name, lesson_time, deadline, status, remark)
+                values
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                id,
+                title,
+                1L,
+                observerId,
+                teacherName,
+                courseName,
+                java.sql.Timestamp.valueOf("2026-04-20 09:00:00"),
+                java.sql.Timestamp.valueOf("2026-04-22 18:00:00"),
+                status,
+                remark);
     }
 }

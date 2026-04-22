@@ -50,9 +50,12 @@ async function loadTasks() {
   errorMessage.value = ''
 
   try {
-    tasks.value = await fetchTasks(
-      activeFilter.value === 'ALL' ? undefined : { status: activeFilter.value },
-    )
+    const result = await fetchTasks({
+      ...(activeFilter.value === 'ALL' ? {} : { status: activeFilter.value }),
+      pageNum: 1,
+      pageSize: 100,
+    })
+    tasks.value = result.list
   } catch {
     errorMessage.value = '任务加载失败，请稍后重试'
     tasks.value = []

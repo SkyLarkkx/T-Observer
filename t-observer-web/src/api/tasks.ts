@@ -1,10 +1,10 @@
 import type { ApiEnvelope } from '@/types/auth'
-import type { TaskCreatePayload, TaskListItem, TaskQueryParams } from '@/types/task'
+import type { PageResult, TaskCreatePayload, TaskListItem, TaskQueryParams } from '@/types/task'
 
 import { http } from './http'
 
 export async function fetchTasks(params?: TaskQueryParams) {
-  const response = await http.get<ApiEnvelope<TaskListItem[]>>('/tasks', { params })
+  const response = await http.get<ApiEnvelope<PageResult<TaskListItem>>>('/tasks', { params })
   return response.data.data
 }
 

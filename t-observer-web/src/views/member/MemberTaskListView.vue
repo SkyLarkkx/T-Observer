@@ -11,10 +11,18 @@ import {
   type TaskStatus,
 } from '@/types/task'
 
+const PAGE_SIZE = 6
+const TEXT_PREVIEW_LIMIT = 24
+
 const loading = ref(false)
 const errorMessage = ref('')
 const tasks = ref<TaskListItem[]>([])
 const activeFilter = ref<TaskStatus | 'ALL'>('ALL')
+const pageNum = ref(1)
+const total = ref(0)
+const detailDialogOpen = ref(false)
+const detailTitle = ref('')
+const detailContent = ref('')
 
 const hasTasks = computed(() => tasks.value.length > 0)
 
@@ -44,6 +52,32 @@ function buildTaskQuery(task: TaskListItem): LocationQueryRaw {
   }
 }
 
+function isReturned(task: TaskListItem) {
+  return task.recordStatus === 'RETURNED'
+}
+
+function normalizeText(value: string | null) {
+  return value?.trim() || '--'
+}
+
+function isLongText(value: string | null) {
+  return normalizeText(value).length > TEXT_PREVIEW_LIMIT
+}
+
+function previewText(value: string | null) {
+  const normalized = normalizeText(value)
+  if (normalized.length <= TEXT_PREVIEW_LIMIT) {
+    return normalized
+  }
+  return `${normalized.slice(0, TEXT_PREVIEW_LIMIT)}...`
+}
+
+function openTextDetail(title: string, value: string | null) {
+  detailTitle.value = `${title}详情`
+  detailContent.value = normalizeText(value)
+  detailDialogOpen.value = true
+}
+
 function getActionText(status: TaskStatus) {
   switch (status) {
     case 'PENDING':
@@ -55,17 +89,23 @@ function getActionText(status: TaskStatus) {
   }
 }
 
-async function loadTasks() {
+async function loadTasks(targetPage = pageNum.value) {
   loading.value = true
   errorMessage.value = ''
 
   try {
-    tasks.value = await fetchTasks(
-      activeFilter.value === 'ALL' ? undefined : { status: activeFilter.value },
-    )
+    const result = await fetchTasks({
+      ...(activeFilter.value === 'ALL' ? {} : { status: activeFilter.value }),
+      pageNum: targetPage,
+      pageSize: PAGE_SIZE,
+    })
+    tasks.value = result.list
+    total.value = result.total
+    pageNum.value = result.pageNum
   } catch {
     errorMessage.value = '任务加载失败，请稍后重试'
     tasks.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
@@ -77,7 +117,12 @@ async function switchFilter(filter: TaskStatus | 'ALL') {
   }
 
   activeFilter.value = filter
-  await loadTasks()
+  pageNum.value = 1
+  await loadTasks(1)
+}
+
+async function handlePageChange(nextPage: number) {
+  await loadTasks(nextPage)
 }
 
 onMounted(loadTasks)
@@ -147,7 +192,10 @@ onMounted(loadTasks)
             <h2>{{ task.title }}</h2>
             <p>{{ task.teacherName }} · {{ task.courseName }}</p>
           </div>
-          <StatusTag :status="task.status" />
+          <div class="task-card__status-tags">
+            <span v-if="isReturned(task)" class="task-card__failed-tag">未通过</span>
+            <StatusTag :status="task.status" />
+          </div>
         </div>
 
         <dl class="task-card__meta">
@@ -159,9 +207,35 @@ onMounted(loadTasks)
             <dt>截止时间</dt>
             <dd>{{ formatDateTime(task.deadline) }}</dd>
           </div>
+          <div class="task-card__meta-row--text">
+            <dt>备注</dt>
+            <dd>
+              <span class="task-card__text-value">{{ previewText(task.remark) }}</span>
+              <button
+                v-if="isLongText(task.remark)"
+                class="task-card__text-button"
+                type="button"
+                @click="openTextDetail('备注', task.remark)"
+              >
+                查看
+              </button>
+            </dd>
+          </div>
+          <div class="task-card__meta-row--text">
+            <dt>退回原因</dt>
+            <dd>
+              <span class="task-card__text-value">{{ previewText(task.rejectReason) }}</span>
+              <button
+                v-if="isLongText(task.rejectReason)"
+                class="task-card__text-button"
+                type="button"
+                @click="openTextDetail('退回原因', task.rejectReason)"
+              >
+                查看
+              </button>
+            </dd>
+          </div>
         </dl>
-
-        <p v-if="task.remark" class="task-card__remark">{{ task.remark }}</p>
 
         <footer class="task-card__footer">
           <span class="task-card__summary">{{ TASK_STATUS_LABELS[task.status] }}任务</span>
@@ -178,6 +252,27 @@ onMounted(loadTasks)
         </footer>
       </article>
     </section>
+
+    <section v-if="total > 0" class="member-task-page__pagination">
+      <span>共 {{ total }} 条</span>
+      <el-pagination
+        background
+        layout="prev, pager, next"
+        :current-page="pageNum"
+        :page-size="PAGE_SIZE"
+        :total="total"
+        @current-change="handlePageChange"
+      />
+    </section>
+
+    <el-dialog
+      v-model="detailDialogOpen"
+      :title="detailTitle"
+      width="520px"
+      :append-to-body="false"
+    >
+      <p class="member-task-page__detail-text">{{ detailContent }}</p>
+    </el-dialog>
   </section>
 </template>
 
@@ -252,6 +347,23 @@ onMounted(loadTasks)
   gap: 16px;
 }
 
+.member-task-page__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  color: var(--ui-color-text-secondary);
+  font-size: 14px;
+}
+
+.member-task-page__detail-text {
+  margin: 0;
+  color: #303133;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .member-task-page__skeleton,
 .task-card {
   padding: 20px;
@@ -289,6 +401,27 @@ onMounted(loadTasks)
   font-size: 14px;
 }
 
+.task-card__status-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.task-card__failed-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fef0f0;
+  color: #f56c6c;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
 .task-card__meta {
   display: grid;
   gap: 12px;
@@ -312,18 +445,35 @@ onMounted(loadTasks)
 }
 
 .task-card__meta dd {
+  display: inline-flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 0;
   margin: 0;
   font-weight: 600;
   text-align: right;
 }
 
-.task-card__remark {
-  margin: 0;
-  padding: 14px;
-  border-radius: 12px;
-  background: #f8fbff;
-  color: #425466;
-  line-height: 1.6;
+.task-card__meta-row--text dd {
+  gap: 8px;
+  max-width: 62%;
+}
+
+.task-card__text-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-card__text-button {
+  flex: 0 0 auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ui-color-primary);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
 }
 
 .task-card__footer {
@@ -351,8 +501,18 @@ onMounted(loadTasks)
     flex-direction: column;
   }
 
+  .member-task-page__pagination {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .task-card__meta dd {
+    justify-content: flex-start;
     text-align: left;
+  }
+
+  .task-card__meta-row--text dd {
+    max-width: 100%;
   }
 }
 </style>

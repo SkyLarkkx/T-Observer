@@ -11,4 +11,6 @@ public class TaskQueryRequest {
 
     private Long observerId;
     private String status;
+    private Integer pageNum;
+    private Integer pageSize;
 }
