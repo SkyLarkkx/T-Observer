@@ -14,6 +14,8 @@ import {
   type TaskStatus,
 } from '@/types/task'
 
+const PAGE_SIZE = 10
+
 const loading = ref(false)
 const drawerOpen = ref(false)
 const creating = ref(false)
@@ -22,7 +24,12 @@ const errorMessage = ref('')
 const tasks = ref<TaskListItem[]>([])
 const memberOptions = ref<MemberOption[]>([])
 const activeFilter = ref<TaskStatus | 'ALL'>('ALL')
+const pageNum = ref(1)
+const total = ref(0)
 const isMobile = ref(false)
+const detailDialogOpen = ref(false)
+const detailTitle = ref('')
+const detailContent = ref('')
 const formRef = ref<FormInstance>()
 
 const form = reactive<TaskCreatePayload>({
@@ -45,20 +52,41 @@ function getAxiosMessage(error: unknown, fallback: string) {
   )
 }
 
-async function loadTasks() {
+function isReturned(task: TaskListItem) {
+  return task.recordStatus === 'RETURNED'
+}
+
+function normalizeText(value: string | null) {
+  return value?.trim() || '--'
+}
+
+function hasText(value: string | null) {
+  return normalizeText(value) !== '--'
+}
+
+function openTextDetail(title: string, value: string | null) {
+  detailTitle.value = `${title}详情`
+  detailContent.value = normalizeText(value)
+  detailDialogOpen.value = true
+}
+
+async function loadTasks(targetPage = pageNum.value) {
   loading.value = true
   errorMessage.value = ''
 
   try {
     const result = await fetchTasks({
       ...(activeFilter.value === 'ALL' ? {} : { status: activeFilter.value }),
-      pageNum: 1,
-      pageSize: 100,
+      pageNum: targetPage,
+      pageSize: PAGE_SIZE,
     })
     tasks.value = result.list
+    total.value = result.total
+    pageNum.value = result.pageNum
   } catch {
     errorMessage.value = '任务加载失败，请稍后重试'
     tasks.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
@@ -140,7 +168,12 @@ async function switchFilter(filter: TaskStatus | 'ALL') {
   }
 
   activeFilter.value = filter
-  await loadTasks()
+  pageNum.value = 1
+  await loadTasks(1)
+}
+
+async function handlePageChange(nextPage: number) {
+  await loadTasks(nextPage)
 }
 
 async function handleCreateTask() {
@@ -238,15 +271,40 @@ onBeforeUnmount(() => {
         <el-table-column prop="observerName" label="听课成员" min-width="120" />
         <el-table-column prop="teacherName" label="授课教师" min-width="120" />
         <el-table-column prop="courseName" label="课程名称" min-width="140" />
-        <el-table-column label="听课时间" min-width="160">
+        <el-table-column label="备注" min-width="240">
+          <template #default="{ row }">
+            <div class="leader-task-page__remark-cell">
+              <span class="leader-task-page__remark-text">{{ normalizeText(row.remark) }}</span>
+              <button
+                v-if="hasText(row.remark)"
+                class="leader-task-page__text-button"
+                type="button"
+                @click="openTextDetail('备注', row.remark)"
+              >
+                查看
+              </button>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="听课时间" min-width="170">
           <template #default="{ row }">{{ row.lessonTime.replace('T', ' ') }}</template>
         </el-table-column>
         <el-table-column label="截止时间" min-width="160">
           <template #default="{ row }">{{ row.deadline.replace('T', ' ') }}</template>
         </el-table-column>
-        <el-table-column label="状态" width="120">
+        <el-table-column label="状态" width="190">
           <template #default="{ row }">
-            <StatusTag :status="row.status" />
+            <div class="leader-task-page__status-tags">
+              <button
+                v-if="isReturned(row)"
+                class="leader-task-page__failed-tag"
+                type="button"
+                @click="openTextDetail('退回原因', row.rejectReason)"
+              >
+                未通过
+              </button>
+              <StatusTag :status="row.status" />
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -258,15 +316,48 @@ onBeforeUnmount(() => {
               <h2>{{ task.title }}</h2>
               <p>{{ task.teacherName }} · {{ task.courseName }}</p>
             </div>
-            <StatusTag :status="task.status" />
+            <div class="leader-task-page__status-tags">
+              <button
+                v-if="isReturned(task)"
+                class="leader-task-page__failed-tag"
+                type="button"
+                @click="openTextDetail('退回原因', task.rejectReason)"
+              >
+                未通过
+              </button>
+              <StatusTag :status="task.status" />
+            </div>
           </div>
 
           <p>成员：{{ task.observerName || `ID ${task.observerId}` }}</p>
+          <p class="leader-task-card__remark">
+            <span>备注：{{ normalizeText(task.remark) }}</span>
+            <button
+              v-if="hasText(task.remark)"
+              class="leader-task-page__text-button"
+              type="button"
+              @click="openTextDetail('备注', task.remark)"
+            >
+              查看
+            </button>
+          </p>
           <p>听课时间：{{ task.lessonTime.replace('T', ' ') }}</p>
           <p>截止时间：{{ task.deadline.replace('T', ' ') }}</p>
         </article>
       </section>
     </template>
+
+    <section v-if="total > 0" class="leader-task-page__pagination">
+      <span>共 {{ total }} 条</span>
+      <el-pagination
+        background
+        layout="prev, pager, next"
+        :current-page="pageNum"
+        :page-size="PAGE_SIZE"
+        :total="total"
+        @current-change="handlePageChange"
+      />
+    </section>
 
     <el-drawer
       v-model="drawerOpen"
@@ -349,6 +440,15 @@ onBeforeUnmount(() => {
         </div>
       </template>
     </el-drawer>
+
+    <el-dialog
+      v-model="detailDialogOpen"
+      :title="detailTitle"
+      width="520px"
+      :append-to-body="false"
+    >
+      <p class="leader-task-page__detail-text">{{ detailContent }}</p>
+    </el-dialog>
   </section>
 </template>
 
@@ -413,6 +513,73 @@ onBeforeUnmount(() => {
   border-radius: 16px;
 }
 
+.leader-task-page__remark-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 12px;
+}
+
+.leader-task-page__remark-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: #606266;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leader-task-page__text-button {
+  flex: 0 0 auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ui-color-primary);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.leader-task-page__status-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.leader-task-page__failed-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 999px;
+  background: #fef0f0;
+  color: #f56c6c;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.leader-task-page__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  color: var(--ui-color-text-secondary);
+  font-size: 14px;
+}
+
+.leader-task-page__detail-text {
+  margin: 0;
+  color: #303133;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .leader-task-page__cards {
   display: grid;
   gap: 16px;
@@ -443,6 +610,19 @@ onBeforeUnmount(() => {
   color: var(--ui-color-text-secondary);
 }
 
+.leader-task-card__remark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.leader-task-card__remark span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .leader-task-page__drawer-footer {
   display: flex;
   justify-content: flex-end;
@@ -452,6 +632,11 @@ onBeforeUnmount(() => {
 @media (max-width: 768px) {
   .leader-task-page__hero,
   .leader-task-card__header {
+    flex-direction: column;
+  }
+
+  .leader-task-page__pagination {
+    align-items: flex-start;
     flex-direction: column;
   }
 }
