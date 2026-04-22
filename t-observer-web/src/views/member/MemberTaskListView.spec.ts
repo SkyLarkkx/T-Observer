@@ -152,4 +152,75 @@ describe('MemberTaskListView', () => {
     expect(wrapper.text()).toContain('退回原因详情')
     expect(wrapper.text()).toContain('这是一段超过二十四个字符的退回原因，用来验证成员无需进入表单也能查看完整原因。')
   })
+
+  it('jumps to an entered page when pressing Enter in the pagination control', async () => {
+    vi.mocked(fetchTasks)
+      .mockResolvedValueOnce({
+        list: [
+          {
+            id: 1,
+            title: '第一页任务',
+            observerId: 2,
+            observerName: '李老师',
+            teacherName: '赵老师',
+            courseName: '函数概念',
+            lessonTime: '2026-04-20T09:00:00',
+            deadline: '2026-04-22T18:00:00',
+            status: 'PENDING',
+            recordStatus: null,
+            remark: '',
+            rejectReason: null,
+          },
+        ],
+        total: 13,
+        pageNum: 1,
+        pageSize: 6,
+      })
+      .mockResolvedValueOnce({
+        list: [
+          {
+            id: 7,
+            title: '第三页任务',
+            observerId: 2,
+            observerName: '李老师',
+            teacherName: '王老师',
+            courseName: '阅读理解',
+            lessonTime: '2026-04-23T10:00:00',
+            deadline: '2026-04-25T18:00:00',
+            status: 'COMPLETED',
+            recordStatus: null,
+            remark: '',
+            rejectReason: null,
+          },
+        ],
+        total: 13,
+        pageNum: 3,
+        pageSize: 6,
+      })
+
+    const wrapper = mount(MemberTaskListView, {
+      global: {
+        plugins: [ElementPlus],
+        stubs: {
+          RouterLink: RouterLinkStub,
+        },
+      },
+    })
+
+    await vi.waitFor(() => {
+      expect(wrapper.text()).toContain('第一页任务')
+    })
+
+    const pageInput = wrapper.find('[data-testid="member-page-jump-input"]')
+    await pageInput.setValue('3')
+    await pageInput.trigger('keydown.enter')
+
+    await vi.waitFor(() => {
+      expect(fetchTasks).toHaveBeenLastCalledWith({ pageNum: 3, pageSize: 6 })
+    })
+
+    await vi.waitFor(() => {
+      expect(wrapper.text()).toContain('第三页任务')
+    })
+  })
 })

@@ -26,6 +26,7 @@ const memberOptions = ref<MemberOption[]>([])
 const activeFilter = ref<TaskStatus | 'ALL'>('ALL')
 const pageNum = ref(1)
 const total = ref(0)
+const pageJumpValue = ref('')
 const isMobile = ref(false)
 const detailDialogOpen = ref(false)
 const detailTitle = ref('')
@@ -151,6 +152,7 @@ const emptyDescription = computed(() =>
     ? '可以先创建一条听课任务，分配给成员开始填写记录。'
     : '当前筛选条件下暂无任务，建议切换状态或新建任务。',
 )
+const maxPage = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
 
 function resetForm() {
   form.title = ''
@@ -174,6 +176,17 @@ async function switchFilter(filter: TaskStatus | 'ALL') {
 
 async function handlePageChange(nextPage: number) {
   await loadTasks(nextPage)
+}
+
+async function handlePageJump() {
+  const targetPage = Number(pageJumpValue.value)
+  if (!Number.isFinite(targetPage) || targetPage < 1) {
+    return
+  }
+
+  const normalizedPage = Math.min(Math.floor(targetPage), maxPage.value)
+  pageJumpValue.value = String(normalizedPage)
+  await loadTasks(normalizedPage)
 }
 
 async function handleCreateTask() {
@@ -357,6 +370,19 @@ onBeforeUnmount(() => {
         :total="total"
         @current-change="handlePageChange"
       />
+      <label class="leader-task-page__jump">
+        <span>跳至</span>
+        <input
+          v-model="pageJumpValue"
+          data-testid="leader-page-jump-input"
+          inputmode="numeric"
+          min="1"
+          type="number"
+          @keydown.enter="handlePageJump"
+        />
+        <span>页</span>
+        <button type="button" @click="handlePageJump">跳转</button>
+      </label>
     </section>
 
     <el-drawer
@@ -566,10 +592,45 @@ onBeforeUnmount(() => {
 .leader-task-page__pagination {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 14px;
   color: var(--ui-color-text-secondary);
   font-size: 14px;
+}
+
+.leader-task-page__jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.leader-task-page__jump input {
+  width: 64px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
+  color: #303133;
+  font: inherit;
+  text-align: center;
+}
+
+.leader-task-page__jump input:focus {
+  border-color: var(--ui-color-primary);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.14);
+}
+
+.leader-task-page__jump button {
+  height: 32px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--ui-color-primary);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
 }
 
 .leader-task-page__detail-text {
@@ -636,7 +697,7 @@ onBeforeUnmount(() => {
   }
 
   .leader-task-page__pagination {
-    align-items: flex-start;
+    align-items: center;
     flex-direction: column;
   }
 }
