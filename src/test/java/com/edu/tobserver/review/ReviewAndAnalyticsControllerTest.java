@@ -38,11 +38,13 @@ class ReviewAndAnalyticsControllerTest {
     private MockMvc mockMvc;
 
     private String leaderToken;
+    private String memberToken;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
         leaderToken = tokenSessionService.create(new LoginUser(1L, "leader01", "Leader One", RoleCode.LEADER));
+        memberToken = tokenSessionService.create(new LoginUser(2L, "member01", "Member One", RoleCode.MEMBER));
 
         jdbcTemplate.update("delete from observation_score");
         jdbcTemplate.update("delete from observation_record");
@@ -97,9 +99,28 @@ class ReviewAndAnalyticsControllerTest {
                         .header("X-Auth-Token", leaderToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(1))
+                .andExpect(jsonPath("$.data.observerName").value("赵老师"))
                 .andExpect(jsonPath("$.data.teacherName").value("Teacher Zhao"))
                 .andExpect(jsonPath("$.data.strengths").value("Good pacing"))
                 .andExpect(jsonPath("$.data.scores[0].dimensionCode").value("TEACHING_DESIGN"));
+    }
+
+    @Test
+    void shouldListReviewRecordsForLeader() throws Exception {
+        insertReviewRecord(2L, "APPROVED", null, Timestamp.valueOf("2026-04-19 10:00:00"));
+        insertReviewRecord(3L, "RETURNED", "Need more detail", Timestamp.valueOf("2026-04-21 10:00:00"));
+
+        mockMvc.perform(get("/api/reviews")
+                        .header("X-Auth-Token", leaderToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].recordId").value(3))
+                .andExpect(jsonPath("$.data[0].taskTitle").value("Grade 1 Math Observation"))
+                .andExpect(jsonPath("$.data[0].observerName").value("赵老师"))
+                .andExpect(jsonPath("$.data[0].teacherName").value("Teacher Zhao"))
+                .andExpect(jsonPath("$.data[0].courseName").value("Function Concept"))
+                .andExpect(jsonPath("$.data[0].recordStatus").value("RETURNED"))
+                .andExpect(jsonPath("$.data[1].recordStatus").value("SUBMITTED"))
+                .andExpect(jsonPath("$.data[2].recordStatus").value("APPROVED"));
     }
 
     @Test
@@ -112,6 +133,46 @@ class ReviewAndAnalyticsControllerTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("退回时必须填写原因"));
+    }
+
+    @Test
+    void shouldShowPendingReviewAgainAfterReturnedRecordIsResubmitted() throws Exception {
+        mockMvc.perform(post("/api/reviews/1/reject")
+                        .header("X-Auth-Token", leaderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"reason":"Need more detail"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("RETURNED"));
+
+        mockMvc.perform(post("/api/records/submit")
+                        .header("X-Auth-Token", memberToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "taskId":1,
+                                  "teacherName":"Teacher Zhao",
+                                  "strengths":"Revised strengths",
+                                  "weaknesses":"Revised weaknesses",
+                                  "suggestions":"Revised suggestions",
+                                  "scores":[
+                                    {"dimensionCode":"TEACHING_DESIGN","dimensionName":"Teaching Design","scoreValue":4.5},
+                                    {"dimensionCode":"CLASSROOM_ORGANIZATION","dimensionName":"Classroom Organization","scoreValue":4.0},
+                                    {"dimensionCode":"TEACHING_CONTENT","dimensionName":"Teaching Content","scoreValue":4.2},
+                                    {"dimensionCode":"INTERACTION_FEEDBACK","dimensionName":"Interaction Feedback","scoreValue":4.4},
+                                    {"dimensionCode":"TEACHING_EFFECTIVENESS","dimensionName":"Teaching Effectiveness","scoreValue":4.3}
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("SUBMITTED"))
+                .andExpect(jsonPath("$.data.rejectReason").doesNotExist());
+
+        mockMvc.perform(get("/api/reviews")
+                        .header("X-Auth-Token", leaderToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].recordStatus").value("SUBMITTED"));
     }
 
     @Test
@@ -207,6 +268,26 @@ class ReviewAndAnalyticsControllerTest {
         insertScore(recordId, "TEACHING_CONTENT", "Teaching Content", new BigDecimal("4.2"));
         insertScore(recordId, "INTERACTION_FEEDBACK", "Interaction Feedback", new BigDecimal("4.4"));
         insertScore(recordId, "TEACHING_EFFECTIVENESS", "Teaching Effectiveness", new BigDecimal("4.3"));
+    }
+
+    private void insertReviewRecord(Long recordId, String status, String rejectReason, Timestamp submittedAt) {
+        jdbcTemplate.update("""
+                insert into observation_record
+                    (id, task_id, observer_id, teacher_name, strengths, weaknesses, suggestions, status, reject_reason, submitted_at, approved_at)
+                values
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                recordId,
+                1L,
+                2L,
+                "Teacher Zhao",
+                "Review strengths " + recordId,
+                "Review weaknesses " + recordId,
+                "Review suggestions " + recordId,
+                status,
+                rejectReason,
+                submittedAt,
+                "APPROVED".equals(status) ? Timestamp.valueOf("2026-04-21 11:00:00") : null);
     }
 
     private void insertScore(Long recordId, String dimensionCode, String dimensionName, BigDecimal scoreValue) {

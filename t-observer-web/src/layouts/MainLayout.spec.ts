@@ -132,6 +132,11 @@ describe('MainLayout', () => {
               component: { template: '<div>leader tasks</div>' },
             },
             {
+              path: 'leader/reviews',
+              name: 'leader-review-list',
+              component: { template: '<div>review list</div>' },
+            },
+            {
               path: 'leader/reviews/:recordId',
               name: 'leader-review-form',
               component: { template: '<div>review detail</div>' },

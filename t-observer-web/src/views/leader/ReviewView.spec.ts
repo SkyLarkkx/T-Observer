@@ -30,6 +30,7 @@ const submittedRecord = {
   id: 1,
   taskId: 1,
   observerId: 2,
+  observerName: 'Member Li',
   teacherName: 'Teacher Zhao',
   strengths: 'Good pacing',
   weaknesses: 'Board writing can be clearer',
@@ -71,11 +72,14 @@ describe('ReviewView', () => {
     })
 
     expect(wrapper.text()).toContain('Good pacing')
+    expect(wrapper.text()).toContain('Member Li')
+    expect(wrapper.text()).toContain('记录 ID')
+    expect(wrapper.text()).toContain('任务 ID')
     expect(wrapper.text()).toContain('Teaching Design')
     expect(wrapper.text()).toContain('4.5')
   })
 
-  it('approves the record and keeps the returned detail visible', async () => {
+  it('approves the record and returns to the review list', async () => {
     vi.mocked(fetchReviewRecord).mockResolvedValue(submittedRecord)
     vi.mocked(approveRecord).mockResolvedValue({
       ...submittedRecord,
@@ -101,10 +105,31 @@ describe('ReviewView', () => {
     await flushPromises()
 
     expect(approveRecord).toHaveBeenCalledWith(1)
-    expect(wrapper.text()).toContain('APPROVED')
+    expect(pushMock).toHaveBeenCalledWith({ name: 'leader-review-list' })
   })
 
-  it('rejects the record with a reason', async () => {
+  it('blocks approval when reject reason is not empty', async () => {
+    vi.mocked(fetchReviewRecord).mockResolvedValue(submittedRecord)
+
+    const wrapper = mount(ReviewView, {
+      global: {
+        plugins: [ElementPlus],
+      },
+    })
+
+    await vi.waitFor(() => {
+      expect(wrapper.find('[data-testid="review-reason"]').exists()).toBe(true)
+    })
+
+    await wrapper.find('[data-testid="review-reason"]').setValue('Need more detail')
+    await wrapper.find('[data-testid="review-approve"]').trigger('click')
+    await flushPromises()
+
+    expect(approveRecord).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects the record with a reason and returns to the review list', async () => {
     vi.mocked(fetchReviewRecord).mockResolvedValue(submittedRecord)
     vi.mocked(rejectRecord).mockResolvedValue({
       ...submittedRecord,
@@ -131,6 +156,32 @@ describe('ReviewView', () => {
     await flushPromises()
 
     expect(rejectRecord).toHaveBeenCalledWith(1, 'Need more detail')
-    expect(wrapper.text()).toContain('RETURNED')
+    expect(pushMock).toHaveBeenCalledWith({ name: 'leader-review-list' })
+  })
+
+  it('keeps reviewed records read-only while allowing return', async () => {
+    vi.mocked(fetchReviewRecord).mockResolvedValue({
+      ...submittedRecord,
+      status: 'APPROVED',
+      approvedAt: '2026-04-20T11:00:00',
+    })
+
+    const wrapper = mount(ReviewView, {
+      global: {
+        plugins: [ElementPlus],
+      },
+    })
+
+    await vi.waitFor(() => {
+      expect(wrapper.find('[data-testid="review-approve"]').exists()).toBe(true)
+    })
+
+    expect(wrapper.find('[data-testid="review-reason"]').element.disabled).toBe(true)
+    expect(wrapper.find('[data-testid="review-approve"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-testid="review-reject"]').attributes('disabled')).toBeDefined()
+
+    await wrapper.find('[data-testid="review-back"]').trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith({ name: 'leader-review-list' })
   })
 })

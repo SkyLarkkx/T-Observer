@@ -1,6 +1,8 @@
 package com.edu.tobserver.record.mapper;
 
 import com.edu.tobserver.record.entity.ObservationRecord;
+import com.edu.tobserver.review.vo.ReviewListItemVo;
+import java.util.List;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Options;
@@ -70,4 +72,25 @@ public interface ObservationRecordMapper {
             where id = #{id}
             """)
     ObservationRecord findById(@Param("id") Long id);
+
+    @Select("""
+            select
+                r.id as record_id,
+                r.task_id,
+                t.title as task_title,
+                observer.real_name as observer_name,
+                r.teacher_name,
+                t.course_name,
+                t.lesson_time,
+                t.deadline,
+                r.status as record_status,
+                r.submitted_at
+            from observation_record r
+            join observation_task t on t.id = r.task_id
+            left join sys_user observer on observer.id = r.observer_id
+            where t.leader_id = #{leaderId}
+              and r.status in ('SUBMITTED', 'APPROVED', 'RETURNED')
+            order by r.submitted_at desc, r.id desc
+            """)
+    List<ReviewListItemVo> findReviewItemsByLeaderId(@Param("leaderId") Long leaderId);
 }

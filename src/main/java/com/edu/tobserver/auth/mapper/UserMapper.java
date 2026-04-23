@@ -29,4 +29,11 @@ public interface UserMapper {
             </script>
             """)
     List<SysUser> findActiveMembers(@Param("keyword") String keyword);
+
+    @Select("""
+            select real_name
+            from sys_user
+            where id = #{id}
+            """)
+    String findRealNameById(@Param("id") Long id);
 }

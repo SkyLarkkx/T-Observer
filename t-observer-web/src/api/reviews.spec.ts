@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { http } from './http'
-import { approveRecord, fetchReviewRecord, rejectRecord } from './reviews'
+import { approveRecord, fetchReviewRecord, fetchReviewRecords, rejectRecord } from './reviews'
 
 vi.mock('./http', () => ({
   http: {
@@ -14,6 +14,7 @@ const approvedRecord = {
   id: 1,
   taskId: 1,
   observerId: 2,
+  observerName: 'Member Li',
   teacherName: 'Teacher Zhao',
   strengths: 'Good pacing',
   weaknesses: 'Board writing can be clearer',
@@ -47,6 +48,35 @@ describe('reviews api', () => {
     expect(http.get).toHaveBeenCalledWith('/reviews/1')
     expect(result.teacherName).toBe('Teacher Zhao')
     expect(result.status).toBe('SUBMITTED')
+  })
+
+  it('gets /reviews and unwraps review list items', async () => {
+    vi.mocked(http.get).mockResolvedValue({
+      data: {
+        code: 200,
+        message: 'success',
+        data: [
+          {
+            recordId: 1,
+            taskId: 1,
+            taskTitle: 'Task 1',
+            observerName: 'Member Li',
+            teacherName: 'Teacher Zhao',
+            courseName: 'Functions',
+            lessonTime: '2026-04-20T09:00:00',
+            deadline: '2026-04-22T18:00:00',
+            recordStatus: 'SUBMITTED',
+            submittedAt: '2026-04-20T10:00:00',
+          },
+        ],
+      },
+    })
+
+    const result = await fetchReviewRecords()
+
+    expect(http.get).toHaveBeenCalledWith('/reviews')
+    expect(result[0]?.taskTitle).toBe('Task 1')
+    expect(result[0]?.recordStatus).toBe('SUBMITTED')
   })
 
   it('posts approval to /reviews/:recordId/approve and unwraps the record', async () => {

@@ -1,10 +1,15 @@
 import type { ApiEnvelope } from '@/types/auth'
-import type { ObservationRecord } from '@/types/record'
+import type { ObservationRecord, ReviewListItem } from '@/types/record'
 
 import { http } from './http'
 
 export async function fetchReviewRecord(recordId: number) {
   const response = await http.get<ApiEnvelope<ObservationRecord>>(`/reviews/${recordId}`)
+  return response.data.data
+}
+
+export async function fetchReviewRecords() {
+  const response = await http.get<ApiEnvelope<ReviewListItem[]>>('/reviews')
   return response.data.data
 }
 

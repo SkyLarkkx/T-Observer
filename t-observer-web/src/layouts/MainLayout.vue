@@ -55,10 +55,7 @@ const baseNavItems = computed<NavItem[]>(() => [
   },
 ])
 
-const reviewRouteTarget = computed<RouteLocationRaw>(() => ({
-  name: 'leader-review-form',
-  params: { recordId: 104 },
-}))
+const reviewRouteTarget = computed<RouteLocationRaw>(() => ({ name: 'leader-review-list' }))
 
 const navItems = computed<NavItem[]>(() => {
   if (authStore.roleCode !== 'LEADER') {
@@ -68,7 +65,7 @@ const navItems = computed<NavItem[]>(() => {
   return [
     ...baseNavItems.value,
     {
-      names: ['leader-review-form'],
+      names: ['leader-review-list', 'leader-review-form'],
       label: '评审',
       to: reviewRouteTarget.value,
       testId: 'nav-leader-reviews',
@@ -93,14 +90,16 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
         },
         { label: '记录填写' },
       ]
+    case 'leader-review-list':
+      return [{ label: '评审' }]
     case 'leader-review-form':
       return [
         {
-          label: '任务',
-          to: { name: 'leader-task-manage' },
-          testId: 'breadcrumb-link-leader-task-manage',
+          label: '评审',
+          to: { name: 'leader-review-list' },
+          testId: 'breadcrumb-link-leader-review-list',
         },
-        { label: '评审' },
+        { label: '记录详情' },
       ]
     case 'leader-analytics':
       return [{ label: '分析' }]

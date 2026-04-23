@@ -4,7 +4,9 @@ import com.edu.tobserver.common.api.ApiResponse;
 import com.edu.tobserver.record.vo.ObservationRecordVo;
 import com.edu.tobserver.review.dto.RejectRequest;
 import com.edu.tobserver.review.service.ReviewService;
+import com.edu.tobserver.review.vo.ReviewListItemVo;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,6 +22,11 @@ public class ReviewController {
 
     public ReviewController(ReviewService reviewService) {
         this.reviewService = reviewService;
+    }
+
+    @GetMapping
+    public ApiResponse<List<ReviewListItemVo>> list() {
+        return ApiResponse.success(reviewService.findList());
     }
 
     @GetMapping("/{recordId}")

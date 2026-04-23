@@ -17,6 +17,11 @@ const submitting = ref(false)
 const errorMessage = ref('')
 
 const canReview = computed(() => record.value?.status === 'SUBMITTED')
+const statusConfig: Record<string, { label: string; type: 'info' | 'success' | 'danger' }> = {
+  SUBMITTED: { label: '待评审', type: 'info' },
+  APPROVED: { label: '已完成', type: 'success' },
+  RETURNED: { label: '未通过', type: 'danger' },
+}
 
 function getAxiosMessage(error: unknown, fallback: string) {
   return (
@@ -43,6 +48,10 @@ function formatDateTime(value: string | null) {
   }).format(date)
 }
 
+function getStatusConfig(status: string) {
+  return statusConfig[status] ?? { label: status, type: 'info' as const }
+}
+
 async function loadRecord() {
   if (!Number.isFinite(recordId)) {
     errorMessage.value = '评审记录参数无效'
@@ -54,6 +63,7 @@ async function loadRecord() {
 
   try {
     record.value = await fetchReviewRecord(recordId)
+    rejectReason.value = record.value.rejectReason ?? ''
   } catch (error) {
     errorMessage.value = getAxiosMessage(error, '评审记录加载失败，请稍后重试')
     record.value = null
@@ -66,12 +76,17 @@ async function handleApprove() {
   if (!canReview.value) {
     return
   }
+  if (rejectReason.value.trim()) {
+    ElMessage.warning('通过时退回原因必须为空')
+    return
+  }
 
   submitting.value = true
 
   try {
-    record.value = await approveRecord(recordId)
+    await approveRecord(recordId)
     ElMessage.success('已通过')
+    await goBack()
   } catch (error) {
     ElMessage.error(getAxiosMessage(error, '通过失败，请稍后重试'))
   } finally {
@@ -92,8 +107,9 @@ async function handleReject() {
   submitting.value = true
 
   try {
-    record.value = await rejectRecord(recordId, reason)
+    await rejectRecord(recordId, reason)
     ElMessage.success('已退回')
+    await goBack()
   } catch (error) {
     ElMessage.error(getAxiosMessage(error, '退回失败，请稍后重试'))
   } finally {
@@ -102,7 +118,7 @@ async function handleReject() {
 }
 
 async function goBack() {
-  await router.push({ name: 'leader-task-manage' })
+  await router.push({ name: 'leader-review-list' })
 }
 
 onMounted(loadRecord)
@@ -115,7 +131,6 @@ onMounted(loadRecord)
         <p class="review-page__eyebrow">记录评审</p>
         <h1>评审听课记录</h1>
       </div>
-      <el-button text type="primary" @click="goBack">返回任务管理</el-button>
     </header>
 
     <el-skeleton v-if="loading" animated />
@@ -135,13 +150,23 @@ onMounted(loadRecord)
       <section class="review-page__card">
         <div class="review-page__title-row">
           <div>
-            <span class="review-page__label">授课教师</span>
+            <span class="review-page__label">记录信息</span>
             <h2>{{ record.teacherName }}</h2>
           </div>
-          <el-tag effect="plain">{{ record.status }}</el-tag>
+          <el-tag :type="getStatusConfig(record.status).type" effect="plain">
+            {{ getStatusConfig(record.status).label }}
+          </el-tag>
         </div>
 
         <dl class="review-page__meta">
+          <div>
+            <dt>授课教师</dt>
+            <dd>{{ record.teacherName }}</dd>
+          </div>
+          <div>
+            <dt>听课成员</dt>
+            <dd>{{ record.observerName || `ID ${record.observerId}` }}</dd>
+          </div>
           <div>
             <dt>记录 ID</dt>
             <dd>{{ record.id }}</dd>
@@ -155,7 +180,7 @@ onMounted(loadRecord)
             <dd>{{ formatDateTime(record.submittedAt) }}</dd>
           </div>
           <div>
-            <dt>审批时间</dt>
+            <dt>评审时间</dt>
             <dd>{{ formatDateTime(record.approvedAt) }}</dd>
           </div>
         </dl>
@@ -196,9 +221,10 @@ onMounted(loadRecord)
           v-model="rejectReason"
           data-testid="review-reason"
           :disabled="!canReview || submitting"
-          placeholder="填写退回原因"
+          :placeholder="canReview ? '填写退回原因' : '已评审记录不可修改退回原因'"
         ></textarea>
         <div>
+          <el-button data-testid="review-back" @click="goBack">返回</el-button>
           <el-button
             type="primary"
             :disabled="!canReview"
