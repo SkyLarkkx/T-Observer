@@ -1,6 +1,7 @@
 package com.edu.tobserver.analytics.vo;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
@@ -9,9 +10,13 @@ import lombok.Getter;
 @Builder
 public class AnalyticsReportVo {
 
+    private final Long id;
     private final String teacherName;
     private final String periodType;
     private final String periodValue;
+    private final LocalDateTime startTime;
+    private final LocalDateTime endTime;
+    private final LocalDateTime generatedAt;
     private final int sampleCount;
     private final RadarChartVo radarChart;
     private final String strengthSummary;

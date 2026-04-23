@@ -1,4 +1,5 @@
 export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'
+export type TaskRecordStatus = 'DRAFT' | 'SUBMITTED' | 'RETURNED' | 'APPROVED'
 
 export type TaskListItem = {
   id: number
@@ -11,10 +12,21 @@ export type TaskListItem = {
   deadline: string
   status: TaskStatus
   remark: string | null
+  recordStatus: TaskRecordStatus | null
+  rejectReason: string | null
 }
 
 export type TaskQueryParams = {
   status?: TaskStatus
+  pageNum?: number
+  pageSize?: number
+}
+
+export type PageResult<T> = {
+  list: T[]
+  total: number
+  pageNum: number
+  pageSize: number
 }
 
 export type TaskCreatePayload = {

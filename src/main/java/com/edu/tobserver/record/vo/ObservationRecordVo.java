@@ -13,6 +13,7 @@ public class ObservationRecordVo {
     private final Long id;
     private final Long taskId;
     private final Long observerId;
+    private final String observerName;
     private final String teacherName;
     private final String strengths;
     private final String weaknesses;

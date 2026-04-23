@@ -31,7 +31,7 @@ describe('LoginView', () => {
     expect(wrapper.find('[data-testid="login-submit"]').text()).toContain('登录')
   })
 
-  it('submits credentials, stores login state, and jumps to /overview', async () => {
+  it('submits credentials, stores login state, and jumps to /tasks', async () => {
     vi.mocked(login).mockResolvedValue({
       token: 'token-1',
       userId: 1,
@@ -43,7 +43,7 @@ describe('LoginView', () => {
       history: createMemoryHistory(),
       routes: [
         { path: '/login', component: LoginView },
-        { path: '/overview', component: { template: '<div>overview</div>' } },
+        { path: '/tasks', component: { template: '<div>tasks</div>' } },
       ],
     })
 
@@ -65,6 +65,6 @@ describe('LoginView', () => {
       username: 'leader01',
       password: '123456',
     })
-    expect(router.currentRoute.value.fullPath).toBe('/overview')
+    expect(router.currentRoute.value.fullPath).toBe('/tasks')
   })
 })

@@ -1,6 +1,7 @@
 package com.edu.tobserver.task.service;
 
 import com.edu.tobserver.audit.service.AuditLogService;
+import com.edu.tobserver.common.api.PageResult;
 import com.edu.tobserver.common.context.LoginUser;
 import com.edu.tobserver.common.context.LoginUserContext;
 import com.edu.tobserver.common.enums.RoleCode;
@@ -47,7 +48,7 @@ public class ObservationTaskService {
         return observationTask;
     }
 
-    public List<TaskListItemVo> list(TaskQueryRequest request) {
+    public PageResult<TaskListItemVo> list(TaskQueryRequest request) {
         LoginUser loginUser = LoginUserContext.getRequired();
         Long leaderId = null;
         Long observerId = request.getObserverId();
@@ -56,6 +57,30 @@ public class ObservationTaskService {
         } else if (loginUser.getRoleCode() == RoleCode.MEMBER) {
             observerId = loginUser.getUserId();
         }
-        return observationTaskMapper.findList(leaderId, observerId, request.getStatus());
+        int pageNum = normalizePageNum(request.getPageNum());
+        int pageSize = normalizePageSize(request.getPageSize());
+        int offset = (pageNum - 1) * pageSize;
+        long total = observationTaskMapper.countList(leaderId, observerId, request.getStatus());
+        List<TaskListItemVo> list = observationTaskMapper.findPage(
+                leaderId,
+                observerId,
+                request.getStatus(),
+                pageSize,
+                offset);
+        return new PageResult<>(list, total, pageNum, pageSize);
+    }
+
+    private int normalizePageNum(Integer pageNum) {
+        if (pageNum == null || pageNum < 1) {
+            return 1;
+        }
+        return pageNum;
+    }
+
+    private int normalizePageSize(Integer pageSize) {
+        if (pageSize == null || pageSize < 1) {
+            return 10;
+        }
+        return Math.min(pageSize, 100);
     }
 }

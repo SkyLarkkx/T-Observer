@@ -11,6 +11,9 @@ import MainLayout from '@/layouts/MainLayout.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { RoleCode } from '@/types/auth'
 import LeaderTaskManageView from '@/views/leader/LeaderTaskManageView.vue'
+import ReviewListView from '@/views/leader/ReviewListView.vue'
+import ReviewView from '@/views/leader/ReviewView.vue'
+import AnalyticsView from '@/views/leader/AnalyticsView.vue'
 import LoginView from '@/views/login/LoginView.vue'
 import MemberTaskListView from '@/views/member/MemberTaskListView.vue'
 import RecordFormView from '@/views/member/RecordFormView.vue'
@@ -79,6 +82,24 @@ const routes: RouteRecordRaw[] = [
         path: 'leader/tasks',
         name: 'leader-task-manage',
         component: LeaderTaskManageView,
+        meta: { requiresAuth: true },
+      },
+      {
+        path: 'leader/reviews',
+        name: 'leader-review-list',
+        component: ReviewListView,
+        meta: { requiresAuth: true },
+      },
+      {
+        path: 'leader/reviews/:recordId',
+        name: 'leader-review-form',
+        component: ReviewView,
+        meta: { requiresAuth: true },
+      },
+      {
+        path: 'leader/analytics',
+        name: 'leader-analytics',
+        component: AnalyticsView,
         meta: { requiresAuth: true },
       },
     ],

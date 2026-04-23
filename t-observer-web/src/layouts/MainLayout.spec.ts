@@ -107,4 +107,66 @@ describe('MainLayout', () => {
 
     expect(pushSpy).toHaveBeenCalled()
   })
+
+  it('shows leader review and analytics navigation entries', async () => {
+    setActivePinia(createPinia())
+    const authStore = useAuthStore()
+
+    authStore.acceptLogin({
+      token: 'token-3',
+      userId: 3,
+      realName: 'Leader User',
+      roleCode: 'LEADER',
+    })
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        {
+          path: '/',
+          component: MainLayout,
+          children: [
+            {
+              path: 'leader/tasks',
+              name: 'leader-task-manage',
+              component: { template: '<div>leader tasks</div>' },
+            },
+            {
+              path: 'leader/reviews',
+              name: 'leader-review-list',
+              component: { template: '<div>review list</div>' },
+            },
+            {
+              path: 'leader/reviews/:recordId',
+              name: 'leader-review-form',
+              component: { template: '<div>review detail</div>' },
+            },
+            {
+              path: 'leader/analytics',
+              name: 'leader-analytics',
+              component: { template: '<div>analytics</div>' },
+            },
+          ],
+        },
+      ],
+    })
+
+    await router.push('/leader/tasks')
+    await router.isReady()
+
+    const wrapper = mount(MainLayout, {
+      global: {
+        plugins: [ElementPlus, router],
+      },
+    })
+
+    const pushSpy = vi.spyOn(router, 'push')
+
+    expect(wrapper.find('[data-testid="nav-leader-reviews"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="nav-leader-analytics"]').exists()).toBe(true)
+
+    await wrapper.find('[data-testid="nav-leader-analytics"]').trigger('click')
+
+    expect(pushSpy).toHaveBeenCalledWith({ name: 'leader-analytics' })
+  })
 })

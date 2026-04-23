@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AxiosError } from 'axios'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 
 import { fetchMembers } from '@/api/auth'
 import { createTask, fetchTasks } from '@/api/tasks'
@@ -13,6 +13,11 @@ import {
   type TaskListItem,
   type TaskStatus,
 } from '@/types/task'
+import { formatDateTimeToMinute } from '@/utils/datetime'
+
+const PAGE_SIZE = 10
+const TASK_LESSON_TIME_PICKER_POPPER_CLASS = 'task-lesson-time-picker-popper'
+const TASK_DEADLINE_PICKER_POPPER_CLASS = 'task-deadline-picker-popper'
 
 const loading = ref(false)
 const drawerOpen = ref(false)
@@ -22,7 +27,13 @@ const errorMessage = ref('')
 const tasks = ref<TaskListItem[]>([])
 const memberOptions = ref<MemberOption[]>([])
 const activeFilter = ref<TaskStatus | 'ALL'>('ALL')
+const pageNum = ref(1)
+const total = ref(0)
+const pageJumpValue = ref('')
 const isMobile = ref(false)
+const detailDialogOpen = ref(false)
+const detailTitle = ref('')
+const detailContent = ref('')
 const formRef = ref<FormInstance>()
 
 const form = reactive<TaskCreatePayload>({
@@ -35,8 +46,98 @@ const form = reactive<TaskCreatePayload>({
   remark: '',
 })
 
+const createTaskTimeShortcuts = (field: 'lessonTime' | 'deadline') => [
+  {
+    text: '清除',
+    onClick: () => {
+      form[field] = ''
+    },
+  },
+]
+
 function updateViewport() {
   isMobile.value = window.innerWidth < 768
+}
+
+function findVisiblePickerRoot(popperClass: string) {
+  const roots = Array.from(document.querySelectorAll(`.${popperClass}`)).filter(
+    (element): element is HTMLElement => element instanceof HTMLElement,
+  )
+
+  for (let index = roots.length - 1; index >= 0; index -= 1) {
+    const root = roots[index]
+    if (!root) {
+      continue
+    }
+    const style = window.getComputedStyle(root)
+    if (style.display !== 'none' && style.visibility !== 'hidden') {
+      return root
+    }
+  }
+
+  return roots.at(-1) ?? null
+}
+
+function mountPickerFooterActions(
+  popperClass: string,
+  actionClass: string,
+  actions: Array<{ label: string; onClick: () => void }>,
+  attempt = 0,
+) {
+  nextTick(() => {
+    const pickerRoot = findVisiblePickerRoot(popperClass)
+    const footer = pickerRoot?.querySelector('.el-picker-panel__footer')
+    if (!(footer instanceof HTMLElement)) {
+      if (attempt < 10) {
+        window.setTimeout(() => {
+          mountPickerFooterActions(popperClass, actionClass, actions, attempt + 1)
+        }, 16)
+      }
+      return
+    }
+
+    pickerRoot?.querySelector('.el-picker-panel__sidebar')?.remove()
+    footer.querySelector(`.${actionClass}`)?.remove()
+
+    const container = document.createElement('div')
+    container.className = actionClass
+
+    for (const action of actions) {
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = `${actionClass}__button`
+      button.textContent = action.label
+      button.addEventListener('click', action.onClick)
+      container.appendChild(button)
+    }
+
+    const confirmButton = footer.querySelector('.el-picker-panel__btn, .el-picker-panel__link-btn')
+    if (confirmButton) {
+      footer.insertBefore(container, confirmButton)
+      return
+    }
+
+    footer.appendChild(container)
+  })
+}
+
+function handleTaskPickerVisibleChange(field: 'lessonTime' | 'deadline', visible: boolean) {
+  if (!visible) {
+    return
+  }
+
+  mountPickerFooterActions(
+    field === 'lessonTime' ? TASK_LESSON_TIME_PICKER_POPPER_CLASS : TASK_DEADLINE_PICKER_POPPER_CLASS,
+    `task-picker-footer-actions--${field}`,
+    [
+      {
+        label: '\u6e05\u9664',
+        onClick: () => {
+          form[field] = ''
+        },
+      },
+    ],
+  )
 }
 
 function getAxiosMessage(error: unknown, fallback: string) {
@@ -45,17 +146,41 @@ function getAxiosMessage(error: unknown, fallback: string) {
   )
 }
 
-async function loadTasks() {
+function isReturned(task: TaskListItem) {
+  return task.recordStatus === 'RETURNED'
+}
+
+function normalizeText(value: string | null) {
+  return value?.trim() || '--'
+}
+
+function hasText(value: string | null) {
+  return normalizeText(value) !== '--'
+}
+
+function openTextDetail(title: string, value: string | null) {
+  detailTitle.value = `${title}详情`
+  detailContent.value = normalizeText(value)
+  detailDialogOpen.value = true
+}
+
+async function loadTasks(targetPage = pageNum.value) {
   loading.value = true
   errorMessage.value = ''
 
   try {
-    tasks.value = await fetchTasks(
-      activeFilter.value === 'ALL' ? undefined : { status: activeFilter.value },
-    )
+    const result = await fetchTasks({
+      ...(activeFilter.value === 'ALL' ? {} : { status: activeFilter.value }),
+      pageNum: targetPage,
+      pageSize: PAGE_SIZE,
+    })
+    tasks.value = result.list
+    total.value = result.total
+    pageNum.value = result.pageNum
   } catch {
     errorMessage.value = '任务加载失败，请稍后重试'
     tasks.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
@@ -120,6 +245,7 @@ const emptyDescription = computed(() =>
     ? '可以先创建一条听课任务，分配给成员开始填写记录。'
     : '当前筛选条件下暂无任务，建议切换状态或新建任务。',
 )
+const maxPage = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
 
 function resetForm() {
   form.title = ''
@@ -137,7 +263,23 @@ async function switchFilter(filter: TaskStatus | 'ALL') {
   }
 
   activeFilter.value = filter
-  await loadTasks()
+  pageNum.value = 1
+  await loadTasks(1)
+}
+
+async function handlePageChange(nextPage: number) {
+  await loadTasks(nextPage)
+}
+
+async function handlePageJump() {
+  const targetPage = Number(pageJumpValue.value)
+  if (!Number.isFinite(targetPage) || targetPage < 1) {
+    return
+  }
+
+  const normalizedPage = Math.min(Math.floor(targetPage), maxPage.value)
+  pageJumpValue.value = String(normalizedPage)
+  await loadTasks(normalizedPage)
 }
 
 async function handleCreateTask() {
@@ -235,15 +377,40 @@ onBeforeUnmount(() => {
         <el-table-column prop="observerName" label="听课成员" min-width="120" />
         <el-table-column prop="teacherName" label="授课教师" min-width="120" />
         <el-table-column prop="courseName" label="课程名称" min-width="140" />
-        <el-table-column label="听课时间" min-width="160">
-          <template #default="{ row }">{{ row.lessonTime.replace('T', ' ') }}</template>
+        <el-table-column label="备注" min-width="240">
+          <template #default="{ row }">
+            <div class="leader-task-page__remark-cell">
+              <span class="leader-task-page__remark-text">{{ normalizeText(row.remark) }}</span>
+              <button
+                v-if="hasText(row.remark)"
+                class="leader-task-page__text-button"
+                type="button"
+                @click="openTextDetail('备注', row.remark)"
+              >
+                查看
+              </button>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="听课时间" min-width="170">
+          <template #default="{ row }">{{ formatDateTimeToMinute(row.lessonTime) }}</template>
         </el-table-column>
         <el-table-column label="截止时间" min-width="160">
-          <template #default="{ row }">{{ row.deadline.replace('T', ' ') }}</template>
+          <template #default="{ row }">{{ formatDateTimeToMinute(row.deadline) }}</template>
         </el-table-column>
-        <el-table-column label="状态" width="120">
+        <el-table-column label="状态" width="190">
           <template #default="{ row }">
-            <StatusTag :status="row.status" />
+            <div class="leader-task-page__status-tags">
+              <button
+                v-if="isReturned(row)"
+                class="leader-task-page__failed-tag"
+                type="button"
+                @click="openTextDetail('退回原因', row.rejectReason)"
+              >
+                未通过
+              </button>
+              <StatusTag :status="row.status" />
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -255,15 +422,61 @@ onBeforeUnmount(() => {
               <h2>{{ task.title }}</h2>
               <p>{{ task.teacherName }} · {{ task.courseName }}</p>
             </div>
-            <StatusTag :status="task.status" />
+            <div class="leader-task-page__status-tags">
+              <button
+                v-if="isReturned(task)"
+                class="leader-task-page__failed-tag"
+                type="button"
+                @click="openTextDetail('退回原因', task.rejectReason)"
+              >
+                未通过
+              </button>
+              <StatusTag :status="task.status" />
+            </div>
           </div>
 
           <p>成员：{{ task.observerName || `ID ${task.observerId}` }}</p>
-          <p>听课时间：{{ task.lessonTime.replace('T', ' ') }}</p>
-          <p>截止时间：{{ task.deadline.replace('T', ' ') }}</p>
+          <p class="leader-task-card__remark">
+            <span>备注：{{ normalizeText(task.remark) }}</span>
+            <button
+              v-if="hasText(task.remark)"
+              class="leader-task-page__text-button"
+              type="button"
+              @click="openTextDetail('备注', task.remark)"
+            >
+              查看
+            </button>
+          </p>
+          <p>听课时间：{{ formatDateTimeToMinute(task.lessonTime) }}</p>
+          <p>截止时间：{{ formatDateTimeToMinute(task.deadline) }}</p>
         </article>
       </section>
     </template>
+
+    <section v-if="total > 0" class="leader-task-page__pagination">
+      <span>共 {{ total }} 条</span>
+      <el-pagination
+        background
+        layout="prev, pager, next"
+        :current-page="pageNum"
+        :page-size="PAGE_SIZE"
+        :total="total"
+        @current-change="handlePageChange"
+      />
+      <label class="leader-task-page__jump">
+        <span>跳至</span>
+        <input
+          v-model="pageJumpValue"
+          data-testid="leader-page-jump-input"
+          inputmode="numeric"
+          min="1"
+          type="number"
+          @keydown.enter="handlePageJump"
+        />
+        <span>页</span>
+        <button type="button" @click="handlePageJump">跳转</button>
+      </label>
+    </section>
 
     <el-drawer
       v-model="drawerOpen"
@@ -311,7 +524,11 @@ onBeforeUnmount(() => {
           <el-date-picker
             v-model="form.lessonTime"
             type="datetime"
-            value-format="YYYY-MM-DDTHH:mm:ss"
+            format="YYYY-MM-DD HH:mm"
+            value-format="YYYY-MM-DDTHH:mm"
+            :show-now="false"
+            :popper-class="TASK_LESSON_TIME_PICKER_POPPER_CLASS"
+            @visible-change="handleTaskPickerVisibleChange('lessonTime', $event)"
             placeholder="请选择听课时间"
             style="width: 100%"
           />
@@ -321,7 +538,11 @@ onBeforeUnmount(() => {
           <el-date-picker
             v-model="form.deadline"
             type="datetime"
-            value-format="YYYY-MM-DDTHH:mm:ss"
+            format="YYYY-MM-DD HH:mm"
+            value-format="YYYY-MM-DDTHH:mm"
+            :show-now="false"
+            :popper-class="TASK_DEADLINE_PICKER_POPPER_CLASS"
+            @visible-change="handleTaskPickerVisibleChange('deadline', $event)"
             placeholder="请选择截止时间"
             style="width: 100%"
           />
@@ -346,6 +567,15 @@ onBeforeUnmount(() => {
         </div>
       </template>
     </el-drawer>
+
+    <el-dialog
+      v-model="detailDialogOpen"
+      :title="detailTitle"
+      width="520px"
+      :append-to-body="false"
+    >
+      <p class="leader-task-page__detail-text">{{ detailContent }}</p>
+    </el-dialog>
   </section>
 </template>
 
@@ -410,6 +640,108 @@ onBeforeUnmount(() => {
   border-radius: 16px;
 }
 
+.leader-task-page__remark-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 12px;
+}
+
+.leader-task-page__remark-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: #606266;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leader-task-page__text-button {
+  flex: 0 0 auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ui-color-primary);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.leader-task-page__status-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.leader-task-page__failed-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 999px;
+  background: #fef0f0;
+  color: #f56c6c;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.leader-task-page__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  color: var(--ui-color-text-secondary);
+  font-size: 14px;
+}
+
+.leader-task-page__jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.leader-task-page__jump input {
+  width: 64px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
+  color: #303133;
+  font: inherit;
+  text-align: center;
+}
+
+.leader-task-page__jump input:focus {
+  border-color: var(--ui-color-primary);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.14);
+}
+
+.leader-task-page__jump button {
+  height: 32px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--ui-color-primary);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+
+.leader-task-page__detail-text {
+  margin: 0;
+  color: #303133;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .leader-task-page__cards {
   display: grid;
   gap: 16px;
@@ -440,6 +772,19 @@ onBeforeUnmount(() => {
   color: var(--ui-color-text-secondary);
 }
 
+.leader-task-card__remark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.leader-task-card__remark span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .leader-task-page__drawer-footer {
   display: flex;
   justify-content: flex-end;
@@ -451,5 +796,72 @@ onBeforeUnmount(() => {
   .leader-task-card__header {
     flex-direction: column;
   }
+
+  .leader-task-page__pagination {
+    align-items: center;
+    flex-direction: column;
+  }
+}
+</style>
+
+<style>
+.task-lesson-time-picker-popper .el-picker-panel__sidebar,
+.task-deadline-picker-popper .el-picker-panel__sidebar {
+  display: none !important;
+}
+
+.task-lesson-time-picker-popper .el-picker-panel__footer,
+.task-deadline-picker-popper .el-picker-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-height: 48px;
+  padding: 8px 12px;
+}
+
+.task-lesson-time-picker-popper .el-picker-panel__btn,
+.task-deadline-picker-popper .el-picker-panel__btn {
+  box-sizing: border-box;
+  min-width: 72px;
+  height: 32px;
+  margin: 0;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 30px;
+}
+
+.task-picker-footer-actions--lessonTime,
+.task-picker-footer-actions--deadline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 8px;
+}
+
+.task-picker-footer-actions--lessonTime__button,
+.task-picker-footer-actions--deadline__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  height: 32px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #409eff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.task-picker-footer-actions--lessonTime__button:hover,
+.task-picker-footer-actions--deadline__button:hover {
+  background: rgba(64, 158, 255, 0.08);
 }
 </style>

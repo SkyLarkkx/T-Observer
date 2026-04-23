@@ -7,9 +7,12 @@ import lombok.Data;
 public class RadarReport {
 
     private Long id;
+    private Long leaderId;
     private String teacherName;
     private String periodType;
     private String periodValue;
+    private LocalDateTime startTime;
+    private LocalDateTime endTime;
     private Integer sampleCount;
     private String radarJson;
     private String strengthSummary;

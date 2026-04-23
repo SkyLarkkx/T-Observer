@@ -15,6 +15,7 @@ import {
   type ScoreItem,
 } from '@/types/record'
 import type { TaskStatus } from '@/types/task'
+import { formatDateTimeToMinute } from '@/utils/datetime'
 
 type TaskContext = {
   id: number
@@ -38,21 +39,6 @@ const loadingRecord = ref(false)
 const isSavingDraft = ref(false)
 const isSubmitting = ref(false)
 const currentTaskStatus = ref<TaskStatus | null>(null)
-
-function formatDateTime(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date)
-}
 
 function getAxiosMessage(error: unknown, fallback: string) {
   return (
@@ -286,11 +272,11 @@ onMounted(() => {
           </div>
           <div>
             <dt>听课时间</dt>
-            <dd>{{ formatDateTime(taskContext.lessonTime) }}</dd>
+            <dd>{{ formatDateTimeToMinute(taskContext.lessonTime) }}</dd>
           </div>
           <div>
             <dt>截止时间</dt>
-            <dd>{{ formatDateTime(taskContext.deadline) }}</dd>
+            <dd>{{ formatDateTimeToMinute(taskContext.deadline) }}</dd>
           </div>
         </dl>
 

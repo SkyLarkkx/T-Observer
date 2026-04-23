@@ -34,9 +34,12 @@ public interface ObservationTaskMapper {
                 t.lesson_time,
                 t.deadline,
                 t.status,
-                t.remark
+                t.remark,
+                r.status as record_status,
+                r.reject_reason
             from observation_task t
             left join sys_user observer on observer.id = t.observer_id
+            left join observation_record r on r.task_id = t.id and r.observer_id = t.observer_id
             where 1 = 1
             <if test="leaderId != null">
                 and t.leader_id = #{leaderId}
@@ -48,11 +51,34 @@ public interface ObservationTaskMapper {
                 and t.status = #{status}
             </if>
             order by t.created_at desc, t.id desc
+            limit #{limit} offset #{offset}
             </script>
             """)
-    List<TaskListItemVo> findList(@Param("leaderId") Long leaderId,
+    List<TaskListItemVo> findPage(@Param("leaderId") Long leaderId,
                                   @Param("observerId") Long observerId,
-                                  @Param("status") String status);
+                                  @Param("status") String status,
+                                  @Param("limit") int limit,
+                                  @Param("offset") int offset);
+
+    @Select("""
+            <script>
+            select count(*)
+            from observation_task t
+            where 1 = 1
+            <if test="leaderId != null">
+                and t.leader_id = #{leaderId}
+            </if>
+            <if test="observerId != null">
+                and t.observer_id = #{observerId}
+            </if>
+            <if test="status != null and status != ''">
+                and t.status = #{status}
+            </if>
+            </script>
+            """)
+    long countList(@Param("leaderId") Long leaderId,
+                   @Param("observerId") Long observerId,
+                   @Param("status") String status);
 
     @Select("""
             select

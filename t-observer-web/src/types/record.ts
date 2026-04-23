@@ -26,6 +26,7 @@ export type ObservationRecord = {
   id: number
   taskId: number
   observerId: number
+  observerName: string | null
   teacherName: string
   strengths: string
   weaknesses: string
@@ -35,6 +36,19 @@ export type ObservationRecord = {
   submittedAt: string | null
   approvedAt: string | null
   scores: ScoreItem[]
+}
+
+export type ReviewListItem = {
+  recordId: number
+  taskId: number
+  taskTitle: string
+  observerName: string | null
+  teacherName: string
+  courseName: string
+  lessonTime: string
+  deadline: string
+  recordStatus: string
+  submittedAt: string | null
 }
 
 export const DIMENSION_OPTIONS: Array<Pick<ScoreItem, 'dimensionCode' | 'dimensionName'>> = [

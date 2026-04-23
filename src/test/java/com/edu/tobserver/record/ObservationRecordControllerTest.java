@@ -42,6 +42,8 @@ class ObservationRecordControllerTest {
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
         memberToken = tokenSessionService.create(new LoginUser(2L, "member01", "Member One", RoleCode.MEMBER));
 
+        jdbcTemplate.update("delete from observation_score");
+        jdbcTemplate.update("delete from observation_record");
         jdbcTemplate.update("delete from audit_log");
         jdbcTemplate.update("delete from observation_task");
         jdbcTemplate.update("""
