@@ -47,6 +47,7 @@ class ReviewAndAnalyticsControllerTest {
         memberToken = tokenSessionService.create(new LoginUser(2L, "member01", "Member One", RoleCode.MEMBER));
 
         jdbcTemplate.update("delete from observation_score");
+        jdbcTemplate.update("delete from radar_report");
         jdbcTemplate.update("delete from observation_record");
         jdbcTemplate.update("delete from observation_task");
         jdbcTemplate.update("delete from audit_log");
@@ -99,7 +100,7 @@ class ReviewAndAnalyticsControllerTest {
                         .header("X-Auth-Token", leaderToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(1))
-                .andExpect(jsonPath("$.data.observerName").value("赵老师"))
+                .andExpect(jsonPath("$.data.observerName").value("\u8d75\u8001\u5e08"))
                 .andExpect(jsonPath("$.data.teacherName").value("Teacher Zhao"))
                 .andExpect(jsonPath("$.data.strengths").value("Good pacing"))
                 .andExpect(jsonPath("$.data.scores[0].dimensionCode").value("TEACHING_DESIGN"));
@@ -115,7 +116,7 @@ class ReviewAndAnalyticsControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].recordId").value(3))
                 .andExpect(jsonPath("$.data[0].taskTitle").value("Grade 1 Math Observation"))
-                .andExpect(jsonPath("$.data[0].observerName").value("赵老师"))
+                .andExpect(jsonPath("$.data[0].observerName").value("\u8d75\u8001\u5e08"))
                 .andExpect(jsonPath("$.data[0].teacherName").value("Teacher Zhao"))
                 .andExpect(jsonPath("$.data[0].courseName").value("Function Concept"))
                 .andExpect(jsonPath("$.data[0].recordStatus").value("RETURNED"))
@@ -132,7 +133,7 @@ class ReviewAndAnalyticsControllerTest {
                                 {"reason":""}
                                 """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("退回时必须填写原因"));
+                .andExpect(jsonPath("$.message").value("\u9000\u56de\u65f6\u5fc5\u987b\u586b\u5199\u539f\u56e0"));
     }
 
     @Test
@@ -199,12 +200,12 @@ class ReviewAndAnalyticsControllerTest {
                         .header("X-Auth-Token", leaderToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"teacherName":"Teacher Zhao","startTime":"2026-04-01T00:00:00","endTime":"2026-04-30T23:59:59"}
+                                {"teacherName":"Teacher Zhao","startTime":"2026-04-01T00:00","endTime":"2026-04-30T23:59"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.sampleCount").value(0))
                 .andExpect(jsonPath("$.data.radarChart").doesNotExist())
-                .andExpect(jsonPath("$.data.conclusion").value("所选时间范围内暂无已通过记录，无法生成分析"));
+                .andExpect(jsonPath("$.data.conclusion").value("所选范围内暂无已通过记录，无法生成分析"));
     }
 
     @Test
@@ -215,7 +216,7 @@ class ReviewAndAnalyticsControllerTest {
                         .header("X-Auth-Token", leaderToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"teacherName":"Teacher Zhao","startTime":"2026-04-10T00:00:00","endTime":"2026-04-30T23:59:59"}
+                                {"teacherName":"Teacher Zhao","startTime":"2026-04-10T00:00","endTime":"2026-04-30T23:59"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.sampleCount").value(1))
@@ -224,7 +225,7 @@ class ReviewAndAnalyticsControllerTest {
     }
 
     @Test
-    void shouldGenerateAnalyticsForApprovedRecordsWithinCustomTimeRange() throws Exception {
+    void shouldGenerateAnalyticsForApprovedRecordsWithinCustomTimeRangeWithoutPersisting() throws Exception {
         insertApprovedRecord(2L, "Teacher Zhao", Timestamp.valueOf("2026-04-10 10:00:00"));
         insertApprovedRecord(3L, "Teacher Zhao", Timestamp.valueOf("2026-04-15 10:00:00"));
         insertApprovedRecord(4L, "Teacher Zhao", Timestamp.valueOf("2026-04-20 10:00:00"));
@@ -234,7 +235,7 @@ class ReviewAndAnalyticsControllerTest {
                         .header("X-Auth-Token", leaderToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"teacherName":"Teacher Zhao","startTime":"2026-04-10T00:00:00","endTime":"2026-04-30T23:59:59"}
+                                {"teacherName":"Teacher Zhao","startTime":"2026-04-10T00:00","endTime":"2026-04-30T23:59"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.periodType").value("RANGE"))
@@ -242,6 +243,104 @@ class ReviewAndAnalyticsControllerTest {
                 .andExpect(jsonPath("$.data.sampleCount").value(3))
                 .andExpect(jsonPath("$.data.radarChart.values[0]").value(4.5))
                 .andExpect(jsonPath("$.data.conclusion").value("已根据 3 条已通过记录生成分析"));
+
+        Integer reportCount = jdbcTemplate.queryForObject("select count(*) from radar_report", Integer.class);
+        assertThat(reportCount).isEqualTo(0);
+    }
+
+    @Test
+    void shouldGenerateAnalyticsWhenOnlyTeacherIsSelected() throws Exception {
+        insertApprovedRecord(2L, "Teacher Zhao", Timestamp.valueOf("2026-04-10 10:00:00"));
+        insertApprovedRecord(3L, "Teacher Zhao", Timestamp.valueOf("2026-04-15 10:00:00"));
+
+        mockMvc.perform(post("/api/analytics/generate")
+                        .header("X-Auth-Token", leaderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"teacherName":"Teacher Zhao"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.periodValue").value("全部已通过记录"))
+                .andExpect(jsonPath("$.data.sampleCount").value(2));
+    }
+
+    @Test
+    void shouldGenerateAnalyticsWithSingleBoundaryTime() throws Exception {
+        insertApprovedRecord(2L, "Teacher Zhao", Timestamp.valueOf("2026-04-10 10:00:00"));
+        insertApprovedRecord(3L, "Teacher Zhao", Timestamp.valueOf("2026-04-15 10:00:00"));
+        insertApprovedRecord(4L, "Teacher Zhao", Timestamp.valueOf("2026-04-20 10:00:00"));
+
+        mockMvc.perform(post("/api/analytics/generate")
+                        .header("X-Auth-Token", leaderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"teacherName":"Teacher Zhao","startTime":"2026-04-15T00:00"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.periodValue").value("2026-04-15T00:00 之后"))
+                .andExpect(jsonPath("$.data.sampleCount").value(2));
+
+        mockMvc.perform(post("/api/analytics/generate")
+                        .header("X-Auth-Token", leaderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"teacherName":"Teacher Zhao","endTime":"2026-04-15T23:59"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.periodValue").value("2026-04-15T23:59 之前"))
+                .andExpect(jsonPath("$.data.sampleCount").value(2));
+    }
+
+    @Test
+    void shouldSaveReportThenListAndViewIt() throws Exception {
+        insertApprovedRecord(2L, "Teacher Zhao", Timestamp.valueOf("2026-04-10 10:00:00"));
+        insertApprovedRecord(3L, "Teacher Zhao", Timestamp.valueOf("2026-04-15 10:00:00"));
+
+        mockMvc.perform(post("/api/analytics/reports")
+                        .header("X-Auth-Token", leaderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"teacherName":"Teacher Zhao","startTime":"2026-04-10T00:00","endTime":"2026-04-30T23:59"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").isNumber())
+                .andExpect(jsonPath("$.data.sampleCount").value(2))
+                .andExpect(jsonPath("$.data.startTime").value("2026-04-10T00:00:00"))
+                .andExpect(jsonPath("$.data.generatedAt").exists());
+
+        Long savedReportId = jdbcTemplate.queryForObject(
+                "select id from radar_report order by id desc limit 1",
+                Long.class);
+
+        mockMvc.perform(get("/api/analytics/reports")
+                        .header("X-Auth-Token", leaderToken)
+                        .param("pageNum", "1")
+                        .param("pageSize", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.list[0].teacherName").value("Teacher Zhao"))
+                .andExpect(jsonPath("$.data.list[0].sampleCount").value(2))
+                .andExpect(jsonPath("$.data.list[0].startTime").value("2026-04-10T00:00:00"))
+                .andExpect(jsonPath("$.data.total").value(1));
+
+        mockMvc.perform(get("/api/analytics/reports/" + savedReportId)
+                        .header("X-Auth-Token", leaderToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teacherName").value("Teacher Zhao"))
+                .andExpect(jsonPath("$.data.sampleCount").value(2))
+                .andExpect(jsonPath("$.data.radarChart.values[0]").value(4.5));
+    }
+
+    @Test
+    void shouldListTeacherOptionsForLeader() throws Exception {
+        insertTask(2L, "Teacher Wang");
+        insertTask(3L, "Teacher Zhao");
+
+        mockMvc.perform(get("/api/analytics/teachers")
+                        .header("X-Auth-Token", leaderToken)
+                        .param("keyword", "Teacher"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].teacherName").value("Teacher Wang"))
+                .andExpect(jsonPath("$.data[1].teacherName").value("Teacher Zhao"));
     }
 
     private void insertApprovedRecord(Long recordId, String teacherName, Timestamp approvedAt) {
@@ -288,6 +387,25 @@ class ReviewAndAnalyticsControllerTest {
                 rejectReason,
                 submittedAt,
                 "APPROVED".equals(status) ? Timestamp.valueOf("2026-04-21 11:00:00") : null);
+    }
+
+    private void insertTask(Long id, String teacherName) {
+        jdbcTemplate.update("""
+                insert into observation_task
+                    (id, title, leader_id, observer_id, teacher_name, course_name, lesson_time, deadline, status, remark)
+                values
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                id,
+                teacherName + " Observation",
+                1L,
+                2L,
+                teacherName,
+                "Course " + id,
+                Timestamp.valueOf("2026-04-20 09:00:00"),
+                Timestamp.valueOf("2026-04-22 18:00:00"),
+                "COMPLETED",
+                "Seeded task");
     }
 
     private void insertScore(Long recordId, String dimensionCode, String dimensionName, BigDecimal scoreValue) {

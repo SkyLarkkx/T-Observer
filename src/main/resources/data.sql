@@ -310,6 +310,6 @@ insert into audit_log (id, biz_type, biz_id, operation_type, operator_id, operat
 select 7, 'RECORD', 203, 'APPROVE_RECORD', 1, '张组长', '通过赵老师听课记录样本 3', '2026-04-18 16:10:00'
 where not exists (select 1 from audit_log where id = 7);
 
-insert into radar_report (id, teacher_name, period_type, period_value, sample_count, radar_json, strength_summary, weakness_summary, conclusion, generated_at)
-select 1, '赵老师', 'RANGE', '2026-04-01T00:00:00 ~ 2026-04-30T23:59:59', 3, '{"indicators":[{"name":"教学设计","max":5},{"name":"课堂组织","max":5},{"name":"教学内容","max":5},{"name":"互动反馈","max":5},{"name":"教学效果","max":5}],"values":[4.5,4.3,4.6,4.2,4.5]}', '目标拆解清楚；例题选择贴合生活情境；复习线索完整。', '课堂提问覆盖面、小组反馈和方法迁移总结仍可加强。', '已根据 3 条已审批记录生成雷达图。', '2026-04-18 17:00:00'
+insert into radar_report (id, leader_id, teacher_name, period_type, period_value, start_time, end_time, sample_count, radar_json, strength_summary, weakness_summary, conclusion, generated_at)
+select 1, 1, '赵老师', 'RANGE', '2026-04-01T00:00 ~ 2026-04-30T23:59', '2026-04-01 00:00:00', '2026-04-30 23:59:00', 3, '{"indicators":[{"name":"教学设计","max":5},{"name":"课堂组织","max":5},{"name":"教学内容","max":5},{"name":"互动反馈","max":5},{"name":"教学效果","max":5}],"values":[4.5,4.3,4.6,4.2,4.5]}', '目标拆解清楚；例题选择贴合生活情境；复习线索完整。', '课堂提问覆盖面、小组反馈和方法迁移总结仍可加强。', '已根据 3 条已审批记录生成雷达图。', '2026-04-18 17:00:00'
 where not exists (select 1 from radar_report where id = 1);

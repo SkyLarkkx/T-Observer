@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AxiosError } from 'axios'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 
 import { fetchMembers } from '@/api/auth'
 import { createTask, fetchTasks } from '@/api/tasks'
@@ -16,6 +16,8 @@ import {
 import { formatDateTimeToMinute } from '@/utils/datetime'
 
 const PAGE_SIZE = 10
+const TASK_LESSON_TIME_PICKER_POPPER_CLASS = 'task-lesson-time-picker-popper'
+const TASK_DEADLINE_PICKER_POPPER_CLASS = 'task-deadline-picker-popper'
 
 const loading = ref(false)
 const drawerOpen = ref(false)
@@ -44,8 +46,98 @@ const form = reactive<TaskCreatePayload>({
   remark: '',
 })
 
+const createTaskTimeShortcuts = (field: 'lessonTime' | 'deadline') => [
+  {
+    text: '清除',
+    onClick: () => {
+      form[field] = ''
+    },
+  },
+]
+
 function updateViewport() {
   isMobile.value = window.innerWidth < 768
+}
+
+function findVisiblePickerRoot(popperClass: string) {
+  const roots = Array.from(document.querySelectorAll(`.${popperClass}`)).filter(
+    (element): element is HTMLElement => element instanceof HTMLElement,
+  )
+
+  for (let index = roots.length - 1; index >= 0; index -= 1) {
+    const root = roots[index]
+    if (!root) {
+      continue
+    }
+    const style = window.getComputedStyle(root)
+    if (style.display !== 'none' && style.visibility !== 'hidden') {
+      return root
+    }
+  }
+
+  return roots.at(-1) ?? null
+}
+
+function mountPickerFooterActions(
+  popperClass: string,
+  actionClass: string,
+  actions: Array<{ label: string; onClick: () => void }>,
+  attempt = 0,
+) {
+  nextTick(() => {
+    const pickerRoot = findVisiblePickerRoot(popperClass)
+    const footer = pickerRoot?.querySelector('.el-picker-panel__footer')
+    if (!(footer instanceof HTMLElement)) {
+      if (attempt < 10) {
+        window.setTimeout(() => {
+          mountPickerFooterActions(popperClass, actionClass, actions, attempt + 1)
+        }, 16)
+      }
+      return
+    }
+
+    pickerRoot?.querySelector('.el-picker-panel__sidebar')?.remove()
+    footer.querySelector(`.${actionClass}`)?.remove()
+
+    const container = document.createElement('div')
+    container.className = actionClass
+
+    for (const action of actions) {
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = `${actionClass}__button`
+      button.textContent = action.label
+      button.addEventListener('click', action.onClick)
+      container.appendChild(button)
+    }
+
+    const confirmButton = footer.querySelector('.el-picker-panel__btn, .el-picker-panel__link-btn')
+    if (confirmButton) {
+      footer.insertBefore(container, confirmButton)
+      return
+    }
+
+    footer.appendChild(container)
+  })
+}
+
+function handleTaskPickerVisibleChange(field: 'lessonTime' | 'deadline', visible: boolean) {
+  if (!visible) {
+    return
+  }
+
+  mountPickerFooterActions(
+    field === 'lessonTime' ? TASK_LESSON_TIME_PICKER_POPPER_CLASS : TASK_DEADLINE_PICKER_POPPER_CLASS,
+    `task-picker-footer-actions--${field}`,
+    [
+      {
+        label: '\u6e05\u9664',
+        onClick: () => {
+          form[field] = ''
+        },
+      },
+    ],
+  )
 }
 
 function getAxiosMessage(error: unknown, fallback: string) {
@@ -434,6 +526,9 @@ onBeforeUnmount(() => {
             type="datetime"
             format="YYYY-MM-DD HH:mm"
             value-format="YYYY-MM-DDTHH:mm"
+            :show-now="false"
+            :popper-class="TASK_LESSON_TIME_PICKER_POPPER_CLASS"
+            @visible-change="handleTaskPickerVisibleChange('lessonTime', $event)"
             placeholder="请选择听课时间"
             style="width: 100%"
           />
@@ -445,6 +540,9 @@ onBeforeUnmount(() => {
             type="datetime"
             format="YYYY-MM-DD HH:mm"
             value-format="YYYY-MM-DDTHH:mm"
+            :show-now="false"
+            :popper-class="TASK_DEADLINE_PICKER_POPPER_CLASS"
+            @visible-change="handleTaskPickerVisibleChange('deadline', $event)"
             placeholder="请选择截止时间"
             style="width: 100%"
           />
@@ -703,5 +801,67 @@ onBeforeUnmount(() => {
     align-items: center;
     flex-direction: column;
   }
+}
+</style>
+
+<style>
+.task-lesson-time-picker-popper .el-picker-panel__sidebar,
+.task-deadline-picker-popper .el-picker-panel__sidebar {
+  display: none !important;
+}
+
+.task-lesson-time-picker-popper .el-picker-panel__footer,
+.task-deadline-picker-popper .el-picker-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-height: 48px;
+  padding: 8px 12px;
+}
+
+.task-lesson-time-picker-popper .el-picker-panel__btn,
+.task-deadline-picker-popper .el-picker-panel__btn {
+  box-sizing: border-box;
+  min-width: 72px;
+  height: 32px;
+  margin: 0;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 30px;
+}
+
+.task-picker-footer-actions--lessonTime,
+.task-picker-footer-actions--deadline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 8px;
+}
+
+.task-picker-footer-actions--lessonTime__button,
+.task-picker-footer-actions--deadline__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  height: 32px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #409eff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.task-picker-footer-actions--lessonTime__button:hover,
+.task-picker-footer-actions--deadline__button:hover {
+  background: rgba(64, 158, 255, 0.08);
 }
 </style>

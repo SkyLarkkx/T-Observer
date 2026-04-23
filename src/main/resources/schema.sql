@@ -62,9 +62,12 @@ create table if not exists observation_score (
 
 create table if not exists radar_report (
     id bigint primary key auto_increment,
+    leader_id bigint not null,
     teacher_name varchar(64) not null,
     period_type varchar(32) not null,
     period_value varchar(64) not null,
+    start_time timestamp,
+    end_time timestamp,
     sample_count int not null,
     radar_json text,
     strength_summary text not null,
@@ -72,5 +75,3 @@ create table if not exists radar_report (
     conclusion varchar(255) not null,
     generated_at timestamp not null default current_timestamp
 );
-
-alter table radar_report modify column period_value varchar(64) not null;

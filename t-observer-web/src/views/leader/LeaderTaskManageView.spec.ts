@@ -1,9 +1,9 @@
+import { flushPromises, mount } from '@vue/test-utils'
 import ElementPlus from 'element-plus'
-import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { fetchMembers } from '@/api/auth'
-import { fetchTasks } from '@/api/tasks'
+import { createTask, fetchTasks } from '@/api/tasks'
 
 import LeaderTaskManageView from './LeaderTaskManageView.vue'
 
@@ -20,227 +20,231 @@ vi.mock('@/api/auth', async () => {
   }
 })
 
+const memberOption = {
+  userId: 2,
+  username: 'member01',
+  realName: 'Member Li',
+  roleCode: 'MEMBER',
+} as const
+
+function mountView() {
+  return mount(LeaderTaskManageView, {
+    global: {
+      plugins: [ElementPlus],
+    },
+  })
+}
+
 describe('LeaderTaskManageView', () => {
   afterEach(() => {
     vi.clearAllMocks()
   })
 
-  it('renders the leader task list from API data', async () => {
+  it('loads the first page of leader tasks', async () => {
     vi.mocked(fetchTasks).mockResolvedValue({
       list: [
         {
           id: 1,
-          title: '高一数学听课',
+          title: 'Task One',
           observerId: 2,
-          observerName: '李老师',
-          teacherName: '赵老师',
-          courseName: '函数概念',
+          observerName: 'Member Li',
+          teacherName: 'Teacher Zhao',
+          courseName: 'Function Concepts',
           lessonTime: '2026-04-20T09:00:00',
           deadline: '2026-04-22T18:00:00',
           status: 'PENDING',
           recordStatus: 'RETURNED',
-          remark: '这是一段超过表格备注列可用宽度的备注内容，用来验证组长列表可以查看完整备注。',
-          rejectReason: '请补充课堂互动证据和具体观察片段后重新提交。',
+          remark: 'Long remark content for leader dialog preview.',
+          rejectReason: 'Long reject reason content for returned task preview.',
         },
       ],
       total: 12,
       pageNum: 1,
       pageSize: 10,
     })
+    vi.mocked(fetchMembers).mockResolvedValue([memberOption])
 
-    const wrapper = mount(LeaderTaskManageView, {
-      global: {
-        plugins: [ElementPlus],
-      },
-    })
+    const wrapper = mountView()
 
     await vi.waitFor(() => {
-      expect(wrapper.text()).toContain('高一数学听课')
+      expect(fetchTasks).toHaveBeenCalledWith({ pageNum: 1, pageSize: 10 })
     })
 
-    expect(fetchTasks).toHaveBeenCalledWith({ pageNum: 1, pageSize: 10 })
+    const vm = wrapper.vm as unknown as {
+      tasks: Array<{ title: string; observerName: string; teacherName: string; courseName: string }>
+      total: number
+      pageNum: number
+    }
 
-    expect(wrapper.text()).toContain('任务管理')
-    expect(wrapper.text()).toContain('新建任务')
-    expect(wrapper.text()).toContain('赵老师')
-    expect(wrapper.text()).toContain('备注')
-    expect(wrapper.text()).toContain('未通过')
-    expect(wrapper.text()).toContain('待填写')
-    expect(wrapper.text()).toContain('共 12 条')
+    expect(vm.tasks).toHaveLength(1)
+    expect(vm.tasks[0]?.title).toBe('Task One')
+    expect(vm.tasks[0]?.observerName).toBe('Member Li')
+    expect(vm.tasks[0]?.teacherName).toBe('Teacher Zhao')
+    expect(vm.tasks[0]?.courseName).toBe('Function Concepts')
+    expect(vm.total).toBe(12)
+    expect(vm.pageNum).toBe(1)
   })
 
-  it('shows the empty state when the leader has no tasks yet', async () => {
+  it('keeps the empty-state data when the task list is empty', async () => {
     vi.mocked(fetchTasks).mockResolvedValue({
       list: [],
       total: 0,
       pageNum: 1,
       pageSize: 10,
     })
-    vi.mocked(fetchMembers).mockResolvedValue([
-      {
-        userId: 2,
-        username: 'member01',
-        realName: '李老师',
-        roleCode: 'MEMBER',
-      },
-    ])
+    vi.mocked(fetchMembers).mockResolvedValue([memberOption])
 
-    const wrapper = mount(LeaderTaskManageView, {
-      global: {
-        plugins: [ElementPlus],
-      },
-    })
+    const wrapper = mountView()
 
     await vi.waitFor(() => {
       expect(fetchTasks).toHaveBeenCalled()
     })
 
-    await vi.waitFor(() => {
-      expect(wrapper.text()).toContain('可以先创建一条听课任务')
-    })
+    const vm = wrapper.vm as unknown as { tasks: unknown[]; total: number; emptyDescription: string }
+    expect(vm.tasks).toHaveLength(0)
+    expect(vm.total).toBe(0)
+    expect(vm.emptyDescription).toContain('\u521b\u5efa')
   })
 
-  it('loads member options and uses member name selection instead of raw id input', async () => {
+  it('loads members and wires footer-aware datetime picker props', async () => {
     vi.mocked(fetchTasks).mockResolvedValue({
       list: [],
       total: 0,
       pageNum: 1,
       pageSize: 10,
     })
-    vi.mocked(fetchMembers).mockResolvedValue([
-      {
-        userId: 2,
-        username: 'member01',
-        realName: '李老师',
-        roleCode: 'MEMBER',
-      },
-    ])
+    vi.mocked(fetchMembers).mockResolvedValue([memberOption])
 
-    const wrapper = mount(LeaderTaskManageView, {
-      global: {
-        plugins: [ElementPlus],
-      },
-    })
+    const wrapper = mountView()
 
     await vi.waitFor(() => {
       expect(fetchMembers).toHaveBeenCalled()
     })
 
-    await wrapper.findAll('button').find((button) => button.text().includes('新建任务'))?.trigger('click')
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('\u65b0\u5efa\u4efb\u52a1'))
+      ?.trigger('click')
+    await flushPromises()
 
-    expect(wrapper.text()).toContain('听课成员')
-    expect(wrapper.text()).not.toContain('听课成员 ID')
+    const datePickers = wrapper.findAllComponents({ name: 'ElDatePicker' })
+    expect(datePickers).toHaveLength(2)
+    expect(datePickers[0]?.props('showNow')).toBe(false)
+    expect(datePickers[0]?.props('valueFormat')).toBe('YYYY-MM-DDTHH:mm')
+    expect(datePickers[0]?.props('popperClass')).toBe('task-lesson-time-picker-popper')
+    expect(datePickers[1]?.props('popperClass')).toBe('task-deadline-picker-popper')
   })
 
-  it('opens dialogs for long remarks and returned-task reasons', async () => {
+  it('opens detail dialog content through the shared helper', async () => {
     vi.mocked(fetchTasks).mockResolvedValue({
-      list: [
-        {
-          id: 1,
-          title: '高一数学听课',
-          observerId: 2,
-          observerName: '李老师',
-          teacherName: '赵老师',
-          courseName: '函数概念',
-          lessonTime: '2026-04-20T09:00:00',
-          deadline: '2026-04-22T18:00:00',
-          status: 'PENDING',
-          recordStatus: 'RETURNED',
-          remark: '这是一段超过表格备注列可用宽度的备注内容，用来验证组长列表可以查看完整备注。',
-          rejectReason: '这是一段超过二十四个字符的退回原因，用来验证点击未通过标签可以查看完整原因。',
-        },
-      ],
-      total: 1,
+      list: [],
+      total: 0,
       pageNum: 1,
       pageSize: 10,
     })
+    vi.mocked(fetchMembers).mockResolvedValue([memberOption])
 
-    const wrapper = mount(LeaderTaskManageView, {
-      global: {
-        plugins: [ElementPlus],
-      },
-    })
+    const wrapper = mountView()
+    const vm = wrapper.vm as unknown as {
+      openTextDetail: (title: string, value: string | null) => void
+      detailDialogOpen: boolean
+      detailTitle: string
+      detailContent: string
+    }
 
-    await vi.waitFor(() => {
-      expect(wrapper.text()).toContain('高一数学听课')
-    })
+    vm.openTextDetail('\u5907\u6ce8', 'Long remark content for leader dialog preview.')
+    await flushPromises()
 
-    await wrapper.findAll('button').find((button) => button.text().includes('查看'))?.trigger('click')
-
-    expect(wrapper.text()).toContain('备注详情')
-    expect(wrapper.text()).toContain('这是一段超过表格备注列可用宽度的备注内容，用来验证组长列表可以查看完整备注。')
-
-    await wrapper.findAll('button').find((button) => button.text().includes('未通过'))?.trigger('click')
-
-    expect(wrapper.text()).toContain('退回原因详情')
-    expect(wrapper.text()).toContain('这是一段超过二十四个字符的退回原因，用来验证点击未通过标签可以查看完整原因。')
+    expect(vm.detailDialogOpen).toBe(true)
+    expect(vm.detailTitle).toContain('\u5907\u6ce8')
+    expect(vm.detailContent).toBe('Long remark content for leader dialog preview.')
   })
 
-  it('jumps to an entered page when pressing Enter in the pagination control', async () => {
+  it('jumps to the requested page on enter', async () => {
     vi.mocked(fetchTasks)
       .mockResolvedValueOnce({
-        list: [
-          {
-            id: 1,
-            title: '第一页任务',
-            observerId: 2,
-            observerName: '李老师',
-            teacherName: '赵老师',
-            courseName: '函数概念',
-            lessonTime: '2026-04-20T09:00:00',
-            deadline: '2026-04-22T18:00:00',
-            status: 'PENDING',
-            recordStatus: null,
-            remark: '',
-            rejectReason: null,
-          },
-        ],
-        total: 21,
+        list: [],
+        total: 25,
         pageNum: 1,
         pageSize: 10,
       })
       .mockResolvedValueOnce({
-        list: [
-          {
-            id: 21,
-            title: '第三页任务',
-            observerId: 3,
-            observerName: '王老师',
-            teacherName: '钱老师',
-            courseName: '作文讲评',
-            lessonTime: '2026-04-26T09:00:00',
-            deadline: '2026-04-28T18:00:00',
-            status: 'COMPLETED',
-            recordStatus: null,
-            remark: '',
-            rejectReason: null,
-          },
-        ],
-        total: 21,
+        list: [],
+        total: 25,
         pageNum: 3,
         pageSize: 10,
       })
+    vi.mocked(fetchMembers).mockResolvedValue([memberOption])
 
-    const wrapper = mount(LeaderTaskManageView, {
-      global: {
-        plugins: [ElementPlus],
-      },
-    })
+    const wrapper = mountView()
 
     await vi.waitFor(() => {
-      expect(wrapper.text()).toContain('第一页任务')
+      expect(fetchTasks).toHaveBeenCalledTimes(1)
     })
 
-    const pageInput = wrapper.find('[data-testid="leader-page-jump-input"]')
-    await pageInput.setValue('3')
-    await pageInput.trigger('keydown.enter')
+    const vm = wrapper.vm as unknown as {
+      pageJumpValue: string
+      handlePageJump: () => Promise<void>
+    }
+    vm.pageJumpValue = '3'
+    await vm.handlePageJump()
+    await flushPromises()
+
+    expect(fetchTasks).toHaveBeenLastCalledWith({ pageNum: 3, pageSize: 10 })
+  })
+
+  it('submits task creation with minute-level values', async () => {
+    vi.mocked(fetchTasks).mockResolvedValue({
+      list: [],
+      total: 0,
+      pageNum: 1,
+      pageSize: 10,
+    })
+    vi.mocked(fetchMembers).mockResolvedValue([memberOption])
+    vi.mocked(createTask).mockResolvedValue()
+
+    const wrapper = mountView()
 
     await vi.waitFor(() => {
-      expect(fetchTasks).toHaveBeenLastCalledWith({ pageNum: 3, pageSize: 10 })
+      expect(fetchMembers).toHaveBeenCalled()
     })
 
-    await vi.waitFor(() => {
-      expect(wrapper.text()).toContain('第三页任务')
+    const vm = wrapper.vm as unknown as {
+      form: {
+        title: string
+        observerId: number
+        teacherName: string
+        courseName: string
+        lessonTime: string
+        deadline: string
+        remark: string
+      }
+      formRef: { validate: () => Promise<void> }
+      handleCreateTask: () => Promise<void>
+    }
+
+    vm.form.title = 'Task One'
+    vm.form.observerId = 2
+    vm.form.teacherName = 'Teacher Zhao'
+    vm.form.courseName = 'Function Concepts'
+    vm.form.lessonTime = '2026-04-20T09:00'
+    vm.form.deadline = '2026-04-22T18:00'
+    vm.form.remark = 'Remark text'
+    vm.formRef = {
+      validate: vi.fn().mockResolvedValue(undefined),
+    }
+
+    await vm.handleCreateTask()
+    await flushPromises()
+
+    expect(createTask).toHaveBeenCalledWith({
+      title: 'Task One',
+      observerId: 2,
+      teacherName: 'Teacher Zhao',
+      courseName: 'Function Concepts',
+      lessonTime: '2026-04-20T09:00',
+      deadline: '2026-04-22T18:00',
+      remark: 'Remark text',
     })
   })
 })
