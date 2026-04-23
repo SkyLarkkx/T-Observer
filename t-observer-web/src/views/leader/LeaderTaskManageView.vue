@@ -13,6 +13,7 @@ import {
   type TaskListItem,
   type TaskStatus,
 } from '@/types/task'
+import { formatDateTimeToMinute } from '@/utils/datetime'
 
 const PAGE_SIZE = 10
 
@@ -300,10 +301,10 @@ onBeforeUnmount(() => {
           </template>
         </el-table-column>
         <el-table-column label="听课时间" min-width="170">
-          <template #default="{ row }">{{ row.lessonTime.replace('T', ' ') }}</template>
+          <template #default="{ row }">{{ formatDateTimeToMinute(row.lessonTime) }}</template>
         </el-table-column>
         <el-table-column label="截止时间" min-width="160">
-          <template #default="{ row }">{{ row.deadline.replace('T', ' ') }}</template>
+          <template #default="{ row }">{{ formatDateTimeToMinute(row.deadline) }}</template>
         </el-table-column>
         <el-table-column label="状态" width="190">
           <template #default="{ row }">
@@ -354,8 +355,8 @@ onBeforeUnmount(() => {
               查看
             </button>
           </p>
-          <p>听课时间：{{ task.lessonTime.replace('T', ' ') }}</p>
-          <p>截止时间：{{ task.deadline.replace('T', ' ') }}</p>
+          <p>听课时间：{{ formatDateTimeToMinute(task.lessonTime) }}</p>
+          <p>截止时间：{{ formatDateTimeToMinute(task.deadline) }}</p>
         </article>
       </section>
     </template>
@@ -431,7 +432,8 @@ onBeforeUnmount(() => {
           <el-date-picker
             v-model="form.lessonTime"
             type="datetime"
-            value-format="YYYY-MM-DDTHH:mm:ss"
+            format="YYYY-MM-DD HH:mm"
+            value-format="YYYY-MM-DDTHH:mm"
             placeholder="请选择听课时间"
             style="width: 100%"
           />
@@ -441,7 +443,8 @@ onBeforeUnmount(() => {
           <el-date-picker
             v-model="form.deadline"
             type="datetime"
-            value-format="YYYY-MM-DDTHH:mm:ss"
+            format="YYYY-MM-DD HH:mm"
+            value-format="YYYY-MM-DDTHH:mm"
             placeholder="请选择截止时间"
             style="width: 100%"
           />

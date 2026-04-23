@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { approveRecord, fetchReviewRecord, rejectRecord } from '@/api/reviews'
 import type { ObservationRecord } from '@/types/record'
+import { formatDateTimeToMinute } from '@/utils/datetime'
 
 const route = useRoute()
 const router = useRouter()
@@ -27,25 +28,6 @@ function getAxiosMessage(error: unknown, fallback: string) {
   return (
     ((error as AxiosError<{ message?: string }>)?.response?.data?.message ?? '').trim() || fallback
   )
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return '--'
-  }
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date)
 }
 
 function getStatusConfig(status: string) {
@@ -177,11 +159,11 @@ onMounted(loadRecord)
           </div>
           <div>
             <dt>提交时间</dt>
-            <dd>{{ formatDateTime(record.submittedAt) }}</dd>
+            <dd>{{ formatDateTimeToMinute(record.submittedAt) }}</dd>
           </div>
           <div>
             <dt>评审时间</dt>
-            <dd>{{ formatDateTime(record.approvedAt) }}</dd>
+            <dd>{{ formatDateTimeToMinute(record.approvedAt) }}</dd>
           </div>
         </dl>
       </section>

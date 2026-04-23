@@ -19,7 +19,7 @@ describe('AnalyticsView', () => {
     vi.mocked(generateAnalytics).mockResolvedValue({
       teacherName: 'Teacher Zhao',
       periodType: 'RANGE',
-      periodValue: '2026-04-10T00:00:00 ~ 2026-04-30T23:59:59',
+      periodValue: '2026-04-10T00:00 ~ 2026-04-30T23:59',
       sampleCount: 1,
       radarChart: {
         indicators: [{ name: 'Teaching Design', max: 5 }],
@@ -47,13 +47,14 @@ describe('AnalyticsView', () => {
     await vi.waitFor(() => {
       expect(generateAnalytics).toHaveBeenCalledWith({
         teacherName: 'Teacher Zhao',
-        startTime: '2026-04-10T00:00:00',
-        endTime: '2026-04-30T23:59:00',
+        startTime: '2026-04-10T00:00',
+        endTime: '2026-04-30T23:59',
       })
     })
 
     expect(wrapper.text()).toContain('分析样本数')
     expect(wrapper.text()).toContain('1')
+    expect(wrapper.text()).toContain('2026-04-10T00:00 ~ 2026-04-30T23:59')
     expect(wrapper.text()).toContain('已根据 1 条已通过记录生成分析')
     expect(wrapper.text()).toContain('Good pacing')
   })

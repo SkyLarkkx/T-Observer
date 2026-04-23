@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router'
 
 import { fetchReviewRecords } from '@/api/reviews'
 import type { ReviewListItem } from '@/types/record'
+import { formatDateTimeToMinute } from '@/utils/datetime'
 
 const router = useRouter()
 const records = ref<ReviewListItem[]>([])
@@ -22,25 +23,6 @@ function getAxiosMessage(error: unknown, fallback: string) {
   return (
     ((error as AxiosError<{ message?: string }>)?.response?.data?.message ?? '').trim() || fallback
   )
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return '--'
-  }
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date)
 }
 
 function getStatusConfig(status: string) {
@@ -109,12 +91,12 @@ onMounted(loadRecords)
       <el-table-column prop="courseName" label="课程名称" min-width="140" show-overflow-tooltip />
       <el-table-column label="听课时间" min-width="160">
         <template #default="{ row }">
-          {{ formatDateTime(row.lessonTime) }}
+          {{ formatDateTimeToMinute(row.lessonTime) }}
         </template>
       </el-table-column>
       <el-table-column label="截止时间" min-width="160">
         <template #default="{ row }">
-          {{ formatDateTime(row.deadline) }}
+          {{ formatDateTimeToMinute(row.deadline) }}
         </template>
       </el-table-column>
       <el-table-column label="状态标签" width="110">

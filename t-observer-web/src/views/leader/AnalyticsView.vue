@@ -23,11 +23,7 @@ function getAxiosMessage(error: unknown, fallback: string) {
 }
 
 function normalizeDateTime(value: string) {
-  const trimmed = value.trim()
-  if (trimmed.length === 16) {
-    return `${trimmed}:00`
-  }
-  return trimmed
+  return value.trim()
 }
 
 async function handleGenerate() {

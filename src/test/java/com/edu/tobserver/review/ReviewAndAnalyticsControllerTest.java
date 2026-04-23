@@ -238,7 +238,7 @@ class ReviewAndAnalyticsControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.periodType").value("RANGE"))
-                .andExpect(jsonPath("$.data.periodValue").value("2026-04-10T00:00:00 ~ 2026-04-30T23:59:59"))
+                .andExpect(jsonPath("$.data.periodValue").value("2026-04-10T00:00 ~ 2026-04-30T23:59"))
                 .andExpect(jsonPath("$.data.sampleCount").value(3))
                 .andExpect(jsonPath("$.data.radarChart.values[0]").value(4.5))
                 .andExpect(jsonPath("$.data.conclusion").value("已根据 3 条已通过记录生成分析"));

@@ -10,6 +10,7 @@ import {
   type TaskListItem,
   type TaskStatus,
 } from '@/types/task'
+import { formatDateTimeToMinute } from '@/utils/datetime'
 
 const PAGE_SIZE = 6
 const TEXT_PREVIEW_LIMIT = 24
@@ -27,20 +28,6 @@ const detailContent = ref('')
 
 const hasTasks = computed(() => tasks.value.length > 0)
 const maxPage = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
-
-function formatDateTime(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date)
-}
 
 function buildTaskQuery(task: TaskListItem): LocationQueryRaw {
   return {
@@ -214,11 +201,11 @@ onMounted(loadTasks)
         <dl class="task-card__meta">
           <div>
             <dt>听课时间</dt>
-            <dd>{{ formatDateTime(task.lessonTime) }}</dd>
+            <dd>{{ formatDateTimeToMinute(task.lessonTime, false) }}</dd>
           </div>
           <div>
             <dt>截止时间</dt>
-            <dd>{{ formatDateTime(task.deadline) }}</dd>
+            <dd>{{ formatDateTimeToMinute(task.deadline, false) }}</dd>
           </div>
           <div class="task-card__meta-row--text">
             <dt>备注</dt>

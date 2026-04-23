@@ -28,7 +28,7 @@ import org.springframework.stereotype.Service;
 public class AnalyticsService {
 
     private static final String NO_APPROVED_RECORDS_CONCLUSION = "所选时间范围内暂无已通过记录，无法生成分析";
-    private static final DateTimeFormatter PERIOD_VALUE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+    private static final DateTimeFormatter PERIOD_VALUE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
 
     private final AnalyticsMapper analyticsMapper;
     private final ObservationScoreMapper observationScoreMapper;
