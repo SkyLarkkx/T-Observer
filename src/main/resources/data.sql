@@ -40,6 +40,35 @@ insert into evaluation_dimension (dimension_code, dimension_name)
 select 'TEACHING_EFFECTIVENESS', '教学效果'
 where not exists (select 1 from evaluation_dimension where dimension_code = 'TEACHING_EFFECTIVENESS');
 
+-- 教研组与成员关系：演示同一用户可在不同教研组承担不同岗位
+insert into org_teaching_group (id, group_code, group_name, subject_code, create_time, update_time)
+select 101, 'math-group-01', '数学教研组', 'MATH', '2026-04-20 09:00:00', '2026-04-20 09:00:00'
+where not exists (select 1 from org_teaching_group where id = 101 or group_code = 'math-group-01');
+
+insert into org_teaching_group (id, group_code, group_name, subject_code, create_time, update_time)
+select 102, 'chinese-group-01', '语文教研组', 'CHINESE', '2026-04-20 09:05:00', '2026-04-20 09:05:00'
+where not exists (select 1 from org_teaching_group where id = 102 or group_code = 'chinese-group-01');
+
+insert into org_teaching_group_member (id, group_id, user_id, group_role_code, create_time, update_time)
+select 1001, 101, 1, 'LEADER', '2026-04-20 09:10:00', '2026-04-20 09:10:00'
+where not exists (select 1 from org_teaching_group_member where id = 1001 or (group_id = 101 and user_id = 1));
+
+insert into org_teaching_group_member (id, group_id, user_id, group_role_code, create_time, update_time)
+select 1002, 101, 2, 'MEMBER', '2026-04-20 09:11:00', '2026-04-20 09:11:00'
+where not exists (select 1 from org_teaching_group_member where id = 1002 or (group_id = 101 and user_id = 2));
+
+insert into org_teaching_group_member (id, group_id, user_id, group_role_code, create_time, update_time)
+select 1003, 101, 3, 'MEMBER', '2026-04-20 09:12:00', '2026-04-20 09:12:00'
+where not exists (select 1 from org_teaching_group_member where id = 1003 or (group_id = 101 and user_id = 3));
+
+insert into org_teaching_group_member (id, group_id, user_id, group_role_code, create_time, update_time)
+select 1004, 102, 1, 'MEMBER', '2026-04-20 09:13:00', '2026-04-20 09:13:00'
+where not exists (select 1 from org_teaching_group_member where id = 1004 or (group_id = 102 and user_id = 1));
+
+insert into org_teaching_group_member (id, group_id, user_id, group_role_code, create_time, update_time)
+select 1005, 102, 4, 'LEADER', '2026-04-20 09:14:00', '2026-04-20 09:14:00'
+where not exists (select 1 from org_teaching_group_member where id = 1005 or (group_id = 102 and user_id = 4));
+
 -- 听课任务：覆盖待开始、草稿中、待评审、退回后修改和已通过等流程
 insert into observation_task (id, title, leader_id, observer_id, teacher_name, course_name, lesson_time, deadline, status, remark, created_at)
 select 1, '赵老师数学听课任务-待开始', 1, 2, '赵老师', '函数基础', '2026-04-24 09:00:00', '2026-04-25 18:00:00', 'PENDING', '待成员提交听课记录', '2026-04-23 09:00:00'
