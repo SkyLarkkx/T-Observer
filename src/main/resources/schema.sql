@@ -13,6 +13,32 @@ create table if not exists evaluation_dimension (
     dimension_name varchar(64) not null
 );
 
+create table if not exists org_teaching_group (
+    id bigint primary key auto_increment,
+    group_code varchar(32) not null,
+    group_name varchar(64) not null,
+    subject_code varchar(32) not null,
+    create_time datetime not null default current_timestamp,
+    update_time datetime not null default current_timestamp
+);
+
+create unique index if not exists uk_group_code on org_teaching_group (group_code);
+
+create table if not exists org_teaching_group_member (
+    id bigint primary key auto_increment,
+    group_id bigint not null,
+    user_id bigint not null,
+    group_role_code varchar(16) not null,
+    create_time datetime not null default current_timestamp,
+    update_time datetime not null default current_timestamp
+);
+
+create unique index if not exists uk_group_user on org_teaching_group_member (group_id, user_id);
+create index if not exists idx_member_user_role on org_teaching_group_member (user_id, group_role_code);
+
+comment on table org_teaching_group is '教研组主数据';
+comment on table org_teaching_group_member is '教研组成员关系';
+
 create table if not exists observation_task (
     id bigint primary key auto_increment,
     title varchar(128) not null,
